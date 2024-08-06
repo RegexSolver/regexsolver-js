@@ -27,12 +27,20 @@
   "author": "RegexSolver",
   "license": "MIT",
   "description": "RegexSolver allows you to manipulate regular expressions as sets, enabling operations such as intersection, union, and subtraction.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RegexSolver/regexsolver-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RegexSolver/regexsolver-js/issues"
+  },
   "dependencies": {
     "axios": "^1.7.3"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
     "jest": "^29.7.0",
-    "nock": "^13.5.4"
+    "nock": "^13.5.4",
+    "typescript": "^5.5.4"
   }
 }

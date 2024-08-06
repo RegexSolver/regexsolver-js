@@ -18,8 +18,7 @@ npm install regexsolver
 In order to use the library you need to generate an API Token on our [Developer Console](https://console.regexsolver.com/).
 
 ```javascript
-import { RegexSolver } from 'regexsolver';
-import { Term } from 'regexsolver';
+import { RegexSolver, Term } from 'regexsolver';
 
 async function main() {
     RegexSolver.initialize("YOUR TOKEN HERE");
@@ -35,5 +34,4 @@ async function main() {
 
     console.log(result.toString());
 }
-
 ```
