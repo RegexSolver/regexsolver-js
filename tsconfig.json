@@ -1,0 +1,15 @@
+{
+    "version": "1.6.2",
+    "compilerOptions": {
+        "module": "commonjs",
+        "declaration": true,
+        "outDir": "lib/",
+        "lib": [
+            "es2015",
+            "dom"
+        ]
+    },
+    "files": [
+        "./src/index.ts"
+    ]
+}
