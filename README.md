@@ -20,18 +20,15 @@ In order to use the library you need to generate an API Token on our [Developer 
 ```javascript
 import { RegexSolver, Term } from 'regexsolver';
 
-async function main() {
-    RegexSolver.initialize("YOUR TOKEN HERE");
+RegexSolver.initialize("YOUR TOKEN HERE");
 
-    const term1 = Term.regex("(abc|de|fg){2,}");
-    const term2 = Term.regex("de.*");
-    const term3 = Term.regex(".*abc");
+const term1 = Term.regex("(abc|de|fg){2,}");
+const term2 = Term.regex("de.*");
+const term3 = Term.regex(".*abc");
 
-    const term4 = Term.regex(".+(abc|de).+");
+const term4 = Term.regex(".+(abc|de).+");
 
-    let result = await term1.intersection(term2, term3);
-    result = await result.subtraction(term4);
-
-    console.log(result.toString());
-}
+term1.intersection(term2, term3)
+    .then(result => result.subtraction(term4))
+    .then(result => console.log(result.toString()));
 ```

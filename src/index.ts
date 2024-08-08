@@ -27,7 +27,8 @@ export class RegexSolver {
         instance.apiClient = axios.create({
             baseURL: baseURL,
             headers: {
-                'Authorization': `Bearer ${apiToken}`
+                'Authorization': `Bearer ${apiToken}`,
+                'User-Agent': 'RegexSolver Node.js / 1.0.1',
             }
         });
     }
@@ -82,7 +83,7 @@ export class Term {
 
     private details?: Details;
     constructor(
-        private type: string,
+        private type: 'regex' | 'fair',
         private value: string
     ) {
     }
@@ -93,6 +94,10 @@ export class Term {
 
     static fair(fair: string): Term {
         return new Term(Term.FAIR_PREFIX, fair);
+    }
+
+    getType(): 'regex' | 'fair' {
+        return this.type;
     }
 
     getFair(): string | void {
@@ -166,7 +171,7 @@ export class Term {
 }
 
 interface TermTransient {
-    type: string;
+    type: 'regex' | 'fair';
     value: string;
 }
 
