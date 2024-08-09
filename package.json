@@ -1,11 +1,12 @@
 {
   "name": "regexsolver",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "types": "lib/index.d.ts",
   "files": [
-    "src/"
+    "src/",
+    "lib/"
   ],
   "scripts": {
     "test": "jest",

@@ -28,7 +28,7 @@ export class RegexSolver {
             baseURL: baseURL,
             headers: {
                 'Authorization': `Bearer ${apiToken}`,
-                'User-Agent': 'RegexSolver Node.js / 1.0.2',
+                'User-Agent': 'RegexSolver Node.js / 1.0.3',
             }
         });
     }
