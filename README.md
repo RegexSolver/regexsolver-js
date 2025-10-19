@@ -56,7 +56,7 @@ The API can handle terms in two formats:
 - `regex`: a regular expression pattern
 - `fair`: FAIR (Fast Automaton Internal Representation), a stable, signed format used internally by the engine
 
-By default, the engine returns whatever the operation produces, with no extra convertion. Override with `response_format`:
+By default, the engine returns whatever the operation produces, with no extra convertion. Override with `responseFormat`:
 
 ```javascript
 import { Term, ResponseFormat } from 'regexsolver';
@@ -72,13 +72,13 @@ term.intersection(Term.regex('de.*'), { responseFormat: ResponseFormat.FAIR }).t
 });
 ```
 
-If the format does not matter, omit `response_format` or set it to `ResponseFormat.ANY`.
+If the format does not matter, omit `responseFormat` or set it to `ResponseFormat.ANY`.
 
-Regardless of the format, you can always call `get_pattern()` to obtain the regex pattern of a term.
+Regardless of the format, you can always call `getPattern()` to obtain the regex pattern of a term.
 
 ## Bounding execution time
 
-Set a server-side compute timeout in milliseconds with `execution_timeout`:
+Set a server-side compute timeout in milliseconds with `executionTimeout`:
 
 ```javascript
 import { ApiError, Term } from 'regexsolver';
