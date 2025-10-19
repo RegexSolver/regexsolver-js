@@ -1,18 +1,19 @@
 export class Cardinality {
     constructor(
-        public type: 'Infinite' | 'BigInteger' | 'Integer',
+        public type: 'infinite' | 'bigInteger' | 'integer',
         public value?: number
     ) { }
 
     isInfinite(): boolean {
-        return this.type == 'Infinite';
+        return this.type == 'infinite';
     }
 
     toString(): string {
-        if (this.type == 'Integer') {
-            return this.type + '(' + this.value + ')';
+        const cap1 = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+        if (this.type == 'integer') {
+            return cap1(this.type) + '(' + this.value + ')';
         } else {
-            return this.type;
+            return cap1(this.type);
         }
     }
 }
