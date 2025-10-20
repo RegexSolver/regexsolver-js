@@ -138,7 +138,7 @@ Timeout is best effort. The exact time is not guaranteed.
 
 | Method | Return | Description |
 | -------- | ------- | ------- |
-| `t.generateStrings(count: int, opts?)` | `Promise<string[]>` | Generates up to `count` unique example strings matched by `t`. Supports `executionTimeout`. |
+| `t.generateStrings(count: number, opts?)` | `Promise<string[]>` | Generates up to `count` unique example strings matched by `t`. Supports `executionTimeout`. |
 
 ### Other
 | Method | Return | Description |
