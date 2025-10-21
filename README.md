@@ -67,7 +67,7 @@ term.union(Term.regex('de'), { responseFormat: ResponseFormat.REGEX }).then(resu
   console.log(result.toString()); // regex=(abc)?de
 });
 
-term.intersection(Term.regex('de.*'), { responseFormat: ResponseFormat.FAIR }).then(result => {
+term.union(Term.regex('de'), { responseFormat: ResponseFormat.FAIR }).then(result => {
   console.log(result.toString()); // fair=...
 });
 ```
