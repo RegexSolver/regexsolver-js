@@ -114,7 +114,6 @@ Timeout is best effort. The exact time is not guaranteed.
 | -------- | ------- | ------- |
 | `t.equivalent(term: Term, opts?)` | `Promise<boolean>` | `true` if `t` and `term` accept exactly the same language. Supports `executionTimeout`. |
 | `t.getCardinality()` | `Promise<Cardinality>` | Returns the cardinality of the term (i.e., the number of possible matched strings). |
-| `t.getDetails()` | `Promise<Details>` | Returns cardinality, length bounds, and if it is empty or total. |
 | `t.getDot()` | `Promise<string>` | Returns a Graphviz DOT representation of the automaton for the term. |
 | `t.getFair()` | `string` | Returns the FAIR of the term if defined. |
 | `t.getLength()` | `Promise<Length>` | Returns the minimum and maximum length of matched strings. |

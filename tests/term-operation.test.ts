@@ -11,7 +11,7 @@ describe('term operations', () => {
 
     it('error response correctly handled', async () => {
         const response = JSON.parse(await fs.readFile("tests/assets/response_error.json", 'utf-8'));
-        nock('https://api.regexsolver.com/api/')
+        nock('https://api.regexsolver.com/v1/')
             .post('/compute/intersection')
             .reply(200, response);
 

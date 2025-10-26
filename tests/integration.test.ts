@@ -1,4 +1,4 @@
-import { ApiError, RegexSolver, ResponseFormat, Term } from '../src/index';
+import { RegexSolver, ResponseFormat, Term } from '../src/index';
 
 describe('integration test', () => {
     beforeAll(() => {
@@ -12,30 +12,6 @@ describe('integration test', () => {
         const term = Term.regex('[0-4]');
         const c = await term.getCardinality();
         expect(c.toString()).toEqual('Integer(5)');
-    });
-
-    it('analyze details', async () => {
-        const term = Term.regex('(abc|de)');
-        const details = await term.getDetails();
-        expect(details.toString()).toEqual(
-            'Details[cardinality=Integer(2), length=Length[minimum=2, maximum=3], empty=false, total=false]'
-        );
-    });
-
-    it('analyze details infinite', async () => {
-        const term = Term.regex('.*');
-        const details = await term.getDetails();
-        expect(details.toString()).toEqual(
-            'Details[cardinality=Infinite, length=Length[minimum=0, maximum=null], empty=false, total=true]'
-        );
-    });
-
-    it('analyze details empty', async () => {
-        const term = Term.regex('[]');
-        const details = await term.getDetails();
-        expect(details.toString()).toEqual(
-            'Details[cardinality=Integer(0), length=Length[minimum=null, maximum=null], empty=true, total=false]'
-        );
     });
 
     it('analyze dot', async () => {

@@ -1,5 +1,73 @@
 import axios, { AxiosInstance } from "axios";
-import { Cardinality, Details, Length } from "./details";
+
+interface OperationOptions {
+    responseFormat?: ResponseFormat;
+    executionTimeout?: number;
+}
+
+interface TermTransient {
+    type: TermType;
+    value: string;
+}
+
+function loadTerm(term: TermTransient): Term {
+    return new Term(term.type, term.value);
+}
+
+function loadCardinality(data: Cardinality): Cardinality {
+    return new Cardinality(data.type, data.value);
+}
+
+function loadLength(data: { min: number, max?: number | null }): Length {
+    return new Length(data.min, data.max);
+}
+
+interface ResponseOptions {
+    format?: ResponseFormat;
+}
+
+interface ExecutionOptions {
+    timeout?: number;
+}
+
+interface RequestOptions {
+    schema_version?: number;
+    response?: ResponseOptions;
+    execution?: ExecutionOptions;
+}
+
+interface MultiTermsRequest {
+    terms: Term[];
+    options?: RequestOptions;
+}
+
+interface GenerateStringsRequest {
+    term: Term;
+    count: number;
+    options?: RequestOptions;
+}
+
+interface RepeatRequest {
+    term: Term;
+    min: number;
+    max?: number | null;
+    options?: RequestOptions;
+}
+
+class RequestOptionsBuilder {
+    static fromArgs(args?: { response_format?: ResponseFormat | null; execution_timeout?: number | null }): RequestOptions | undefined {
+        const response = args?.response_format ? { format: args.response_format } : undefined;
+        const execution = args?.execution_timeout ? { timeout: args.execution_timeout } : undefined;
+        if (response || execution) {
+            return {
+                schema_version: 1,
+                response,
+                execution,
+            };
+        }
+        return undefined;
+    }
+}
 
 export class RegexSolver {
     private static instance: RegexSolver;
@@ -27,7 +95,7 @@ export class RegexSolver {
         if (!baseURL) {
             baseURL = process.env.REGEXSOLVER_BASE_URL;
             if (!baseURL) {
-                baseURL = "https://api.regexsolver.com/"
+                baseURL = "https://api.regexsolver.com/v1/"
             }
         }
         instance.apiClient = axios.create({
@@ -41,62 +109,56 @@ export class RegexSolver {
 
     // Analyze
 
-    analyzeDetails(term: Term): Promise<Details> {
-        return this.apiClient.post('/api/analyze/details', term)
-            .then(response => loadDetails(response.data))
-            .catch(error => { throw new ApiError(error.message) });
-    }
-
     analyzeCardinality(term: Term): Promise<Cardinality> {
-        return this.apiClient.post('/api/analyze/cardinality', term)
+        return this.apiClient.post('/analyze/cardinality', term)
             .then(response => loadCardinality(response.data))
             .catch(error => { throw new ApiError(error.message) });
     }
 
     analyzeLength(term: Term): Promise<Length> {
-        return this.apiClient.post('/api/analyze/length', term)
+        return this.apiClient.post('/analyze/length', term)
             .then(response => loadLength(response.data))
             .catch(error => { throw new ApiError(error.message) });
     }
 
     analyzeEquivalent(request: MultiTermsRequest): Promise<boolean> {
-        return this.apiClient.post('/api/analyze/equivalent', request)
+        return this.apiClient.post('/analyze/equivalent', request)
             .then(response => response.data.value)
             .catch(error => { throw new ApiError(error.message) });
     }
 
     analyzeSubset(request: MultiTermsRequest): Promise<boolean> {
-        return this.apiClient.post('/api/analyze/subset', request)
+        return this.apiClient.post('/analyze/subset', request)
             .then(response => response.data.value)
             .catch(error => { throw new ApiError(error.message) });
     }
 
     analyzeEmpty(request: Term): Promise<boolean> {
-        return this.apiClient.post('/api/analyze/empty', request)
+        return this.apiClient.post('/analyze/empty', request)
             .then(response => response.data.value)
             .catch(error => { throw new ApiError(error.message) });
     }
 
     analyzeTotal(request: Term): Promise<boolean> {
-        return this.apiClient.post('/api/analyze/total', request)
+        return this.apiClient.post('/analyze/total', request)
             .then(response => response.data.value)
             .catch(error => { throw new ApiError(error.message) });
     }
 
     analyzeEmptyString(request: Term): Promise<boolean> {
-        return this.apiClient.post('/api/analyze/empty_string', request)
+        return this.apiClient.post('/analyze/empty_string', request)
             .then(response => response.data.value)
             .catch(error => { throw new ApiError(error.message) });
     }
 
     analyzeDot(request: Term): Promise<string> {
-        return this.apiClient.post('/api/analyze/dot', request)
+        return this.apiClient.post('/analyze/dot', request)
             .then(response => response.data.value)
             .catch(error => { throw new ApiError(error.message) });
     }
 
     analyzePattern(request: Term): Promise<string> {
-        return this.apiClient.post('/api/analyze/pattern', request)
+        return this.apiClient.post('/analyze/pattern', request)
             .then(response => response.data.value)
             .catch(error => { throw new ApiError(error.message) });
     }
@@ -104,31 +166,31 @@ export class RegexSolver {
     // Compute
 
     computeRepeat(request: RepeatRequest): Promise<Term> { // todo
-        return this.apiClient.post<TermTransient>('/api/compute/repeat', request)
+        return this.apiClient.post<TermTransient>('/compute/repeat', request)
             .then(response => loadTerm(response.data))
             .catch(error => { throw new ApiError(error.message) });
     }
 
     computeIntersection(request: MultiTermsRequest): Promise<Term> {
-        return this.apiClient.post<TermTransient>('/api/compute/intersection', request)
+        return this.apiClient.post<TermTransient>('/compute/intersection', request)
             .then(response => loadTerm(response.data))
             .catch(error => { throw new ApiError(error.message) });
     }
 
     computeUnion(request: MultiTermsRequest): Promise<Term> {
-        return this.apiClient.post<TermTransient>('/api/compute/union', request)
+        return this.apiClient.post<TermTransient>('/compute/union', request)
             .then(response => loadTerm(response.data))
             .catch(error => { throw new ApiError(error.message) });
     }
 
     computeDifference(request: MultiTermsRequest): Promise<Term> {
-        return this.apiClient.post<TermTransient>('/api/compute/difference', request)
+        return this.apiClient.post<TermTransient>('/compute/difference', request)
             .then(response => loadTerm(response.data))
             .catch(error => { throw new ApiError(error.message) });
     }
 
     computeConcat(request: MultiTermsRequest): Promise<Term> {
-        return this.apiClient.post<TermTransient>('/api/compute/concat', request)
+        return this.apiClient.post<TermTransient>('/compute/concat', request)
             .then(response => loadTerm(response.data))
             .catch(error => { throw new ApiError(error.message) });
     }
@@ -136,7 +198,7 @@ export class RegexSolver {
     // Generate
 
     generateStrings(request: GenerateStringsRequest): Promise<string[]> {
-        return this.apiClient.post('/api/generate/strings', request)
+        return this.apiClient.post('/generate/strings', request)
             .then(response => response.data.value)
             .catch(error => { throw new ApiError(error.message) });
     }
@@ -144,15 +206,10 @@ export class RegexSolver {
 
 export type TermType = "fair" | "regex";
 
-interface OperationOptions {
-    responseFormat?: ResponseFormat;
-    executionTimeout?: number;
-}
 export class Term {
     readonly type: TermType;
     readonly value: string;
 
-    private details?: Details;
     private cardinality?: Cardinality;
     private length?: Length;
     private empty?: boolean;
@@ -208,24 +265,9 @@ export class Term {
     async getCardinality(): Promise<Cardinality> {
         if (this.cardinality) {
             return this.cardinality;
-        } else if (this.details) {
-            return this.details.cardinality;
         }
         this.cardinality = await RegexSolver.getInstance().analyzeCardinality(this);
         return this.cardinality;
-    }
-
-    /**
-     * Analyze this term and return detailed information including cardinality, length, and whether it is empty or total.
-     * 
-     * Results are cached on the instance to avoid repeated API calls.
-     */
-    async getDetails(): Promise<Details> {
-        if (this.details) {
-            return this.details;
-        }
-        this.details = await RegexSolver.getInstance().analyzeDetails(this);
-        return this.details;
     }
 
     /**
@@ -260,8 +302,6 @@ export class Term {
     async getLength(): Promise<Length> {
         if (this.length) {
             return this.length;
-        } else if (this.details) {
-            return this.details.length;
         }
         this.length = await RegexSolver.getInstance().analyzeLength(this);
         return this.length;
@@ -293,8 +333,6 @@ export class Term {
     async isEmpty(): Promise<boolean> {
         if (this.empty) {
             return this.empty;
-        } else if (this.details) {
-            return this.details.empty;
         }
         this.empty = await RegexSolver.getInstance().analyzeEmpty(this);
         return this.empty;
@@ -321,8 +359,6 @@ export class Term {
     async isTotal(): Promise<boolean> {
         if (this.total) {
             return this.total;
-        } else if (this.details) {
-            return this.details.total;
         }
         this.total = await RegexSolver.getInstance().analyzeTotal(this);
         return this.total;
@@ -456,36 +492,6 @@ export class Term {
     }
 }
 
-interface TermTransient {
-    type: TermType;
-    value: string;
-}
-
-function loadTerm(term: TermTransient): Term {
-    return new Term(term.type, term.value);
-}
-
-interface TransientDetails {
-    cardinality: Cardinality;
-    length: number[];
-    empty: boolean;
-    total: boolean;
-}
-
-function loadDetails(data: TransientDetails): Details {
-    const cardinality = new Cardinality(data.cardinality.type, data.cardinality.value);
-    const length = new Length(data.length[0], data.length[1]);
-
-    return new Details(cardinality, length, data.empty, data.total);
-}
-
-function loadCardinality(data: Cardinality): Cardinality {
-    return new Cardinality(data.type, data.value);
-}
-
-function loadLength(data: { min: number, max?: number | null }): Length {
-    return new Length(data.min, data.max);
-}
 
 export class ApiError extends Error {
     constructor(message: string) {
@@ -499,49 +505,33 @@ export enum ResponseFormat {
     FAIR = 'fair'
 };
 
-interface ResponseOptions {
-    format?: ResponseFormat;
-}
+export class Cardinality {
+    constructor(
+        public type: 'infinite' | 'bigInteger' | 'integer',
+        public value?: number
+    ) { }
 
-interface ExecutionOptions {
-    timeout?: number;
-}
+    isInfinite(): boolean {
+        return this.type == 'infinite';
+    }
 
-interface RequestOptions {
-    schema_version?: number;
-    response?: ResponseOptions;
-    execution?: ExecutionOptions;
-}
-
-interface MultiTermsRequest {
-    terms: Term[];
-    options?: RequestOptions;
-}
-
-interface GenerateStringsRequest {
-    term: Term;
-    count: number;
-    options?: RequestOptions;
-}
-
-interface RepeatRequest {
-    term: Term;
-    min: number;
-    max?: number | null;
-    options?: RequestOptions;
-}
-
-class RequestOptionsBuilder {
-    static fromArgs(args?: { response_format?: ResponseFormat | null; execution_timeout?: number | null }): RequestOptions | undefined {
-        const response = args?.response_format ? { format: args.response_format } : undefined;
-        const execution = args?.execution_timeout ? { timeout: args.execution_timeout } : undefined;
-        if (response || execution) {
-            return {
-                schema_version: 1,
-                response,
-                execution,
-            };
+    toString(): string {
+        const cap1 = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+        if (this.type == 'integer') {
+            return cap1(this.type) + '(' + this.value + ')';
+        } else {
+            return cap1(this.type);
         }
-        return undefined;
+    }
+}
+
+export class Length {
+    constructor(
+        public minimum: number,
+        public maximum?: number
+    ) { }
+
+    toString(): string {
+        return "Length[minimum=" + this.minimum + ", maximum=" + this.maximum + "]";
     }
 }
