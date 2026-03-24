@@ -7,14 +7,22 @@ export class Term {
   public readonly value: string;
 
   // Cache
-  public cardinality: Cardinality | null = null;
-  public length: Length | null = null;
-  public empty: boolean | null = null;
-  public emptyString: boolean | null = null;
-  public total: boolean | null = null;
-  public pattern: string | null = null;
-  public dot: string | null = null;
-  public stableTerm: Term | null = null;
+  /** @internal */
+  public _cardinality: Cardinality | null = null;
+  /** @internal */
+  public _length: Length | null = null;
+  /** @internal */
+  public _empty: boolean | null = null;
+  /** @internal */
+  public _emptyString: boolean | null = null;
+  /** @internal */
+  public _total: boolean | null = null;
+  /** @internal */
+  public _pattern: string | null = null;
+  /** @internal */
+  public _dot: string | null = null;
+  /** @internal */
+  public _stableTerm: Term | null = null;
 
   constructor(type: "regex" | "fair", value: string) {
     this.type = type;
@@ -34,7 +42,7 @@ export class Term {
   }
 
   public getPattern(): string | null {
-    return this.type === "regex" ? this.value : this.pattern;
+    return this.type === "regex" ? this.value : this._pattern;
   }
 
   public serialize(): string {

@@ -12,7 +12,7 @@ import {
   RequestOptions,
 } from "./generated";
 import { Term } from "./models/Term";
-import { Cardinality } from "./models/Cardinality";
+import { Cardinality, Infinite, Integer } from "./models/Cardinality";
 import { Length } from "./models/Length";
 import { ResponseFormat } from "./models/ResponseFormat";
 import * as Exceptions from "./exceptions";
@@ -125,43 +125,93 @@ export class RegexSolverClient {
 
     const statusCode = error.response.status;
     const data = error.response.data;
-    const message = data?.error || error.message;
-    const errorCode = data?.errorCode;
+
+    let message = error.message;
+    let errorCode = "UnknownError";
+    const bodyString = typeof data === "string" ? data : JSON.stringify(data);
+
+    if (data) {
+      message = data.error || message;
+      errorCode = data.errorCode || errorCode;
+    }
+
+    message = message || "Unknown API Error";
 
     switch (statusCode) {
       case 400:
         if (errorCode === "InvalidJson")
-          return new Exceptions.InvalidJson(message);
+          return new Exceptions.InvalidJsonError(
+            message,
+            statusCode,
+            bodyString,
+          );
         if (errorCode === "TooManyTerms")
-          return new Exceptions.TooManyTerms(message);
+          return new Exceptions.TooManyTermsError(
+            message,
+            statusCode,
+            bodyString,
+          );
         if (errorCode === "TimeoutTooLarge")
-          return new Exceptions.TimeoutTooLarge(message);
+          return new Exceptions.TimeoutTooLargeError(
+            message,
+            statusCode,
+            bodyString,
+          );
         if (errorCode === "TimeoutExceeded")
-          return new Exceptions.TimeoutExceeded(message);
+          return new Exceptions.TimeoutExceededError(
+            message,
+            statusCode,
+            bodyString,
+          );
         if (errorCode === "InvalidNumberOfStringsToGenerate")
-          return new Exceptions.InvalidNumberOfStringsToGenerate(message);
-        return new Exceptions.RegexSolverError(message, 400, errorCode);
+          return new Exceptions.InvalidNumberOfStringsToGenerate(
+            message,
+            statusCode,
+            bodyString,
+          );
+        return new Exceptions.BadRequestError(message, statusCode, bodyString);
       case 401:
         if (errorCode === "MissingOrMalformedToken")
-          return new Exceptions.MissingOrMalformedToken(message);
+          return new Exceptions.MissingOrMalformedTokenError(
+            message,
+            statusCode,
+            bodyString,
+          );
         if (errorCode === "InvalidToken")
-          return new Exceptions.InvalidToken(message);
-        return new Exceptions.RegexSolverError(message, 401, errorCode);
+          return new Exceptions.InvalidTokenError(
+            message,
+            statusCode,
+            bodyString,
+          );
+        return new Exceptions.UnauthorizedError(
+          message,
+          statusCode,
+          bodyString,
+        );
       case 403:
         if (errorCode === "QuotaExceeded")
-          return new Exceptions.QuotaExceeded(message);
-        return new Exceptions.RegexSolverError(message, 403, errorCode);
+          return new Exceptions.QuotaExceededError(
+            message,
+            statusCode,
+            bodyString,
+          );
+        return new Exceptions.ForbiddenError(message, statusCode, bodyString);
       case 404:
-        return new Exceptions.NotFound(message);
+        return new Exceptions.NotFoundError(message, statusCode, bodyString);
       case 429:
-        const retryAfter = parseFloat(
-          error.response.headers["retry-after"] || "1",
-        );
-        return new Exceptions.TooManyRequestsError(message, retryAfter);
+        const msg =
+          message === "Unknown API Error"
+            ? "Max retries exceeded for 429 Too Many Requests."
+            : message;
+        return new Exceptions.TooManyRequestsError(msg, statusCode, bodyString);
       case 500:
-        return new Exceptions.InternalServerError(message);
+        return new Exceptions.InternalServerError(
+          message,
+          statusCode,
+          bodyString,
+        );
       default:
-        return new Exceptions.RegexSolverError(message, statusCode, errorCode);
+        return new Exceptions.ApiError(message, statusCode, bodyString);
     }
   }
 
@@ -177,8 +227,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<Cardinality> {
-    if (term.cardinality !== null) {
-      return term.cardinality;
+    if (term._cardinality !== null) {
+      return term._cardinality;
     }
 
     const request: TermRequest = {
@@ -189,7 +239,7 @@ export class RegexSolverClient {
       this.analyzeApi.cardinality(request),
     );
     const cardinality = Cardinality.fromDto(response.data.data);
-    term.cardinality = cardinality;
+    term._cardinality = cardinality;
     return cardinality;
   }
 
@@ -203,8 +253,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<Length> {
-    if (term.length !== null) {
-      return term.length;
+    if (term._length !== null) {
+      return term._length;
     }
 
     const request: TermRequest = {
@@ -215,7 +265,7 @@ export class RegexSolverClient {
       this.analyzeApi.length(request),
     );
     const length = Length.fromDto(response.data.data);
-    term.length = length;
+    term._length = length;
     return length;
   }
 
@@ -273,8 +323,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<boolean> {
-    if (term.empty !== null) {
-      return term.empty;
+    if (term._empty !== null) {
+      return term._empty;
     }
 
     const request: TermRequest = {
@@ -285,11 +335,11 @@ export class RegexSolverClient {
       this.analyzeApi.empty(request),
     );
     const isEmpty = response.data.data.value;
-    term.empty = isEmpty;
+    term._empty = isEmpty;
 
     if (isEmpty) {
-      term.cardinality = new Cardinality("integer", 0);
-      term.length = new Length(null, null);
+      term._cardinality = new Integer(0);
+      term._length = new Length(null, null);
     }
 
     return isEmpty;
@@ -305,8 +355,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<boolean> {
-    if (term.emptyString !== null) {
-      return term.emptyString;
+    if (term._emptyString !== null) {
+      return term._emptyString;
     }
 
     const request: TermRequest = {
@@ -317,11 +367,11 @@ export class RegexSolverClient {
       this.analyzeApi.emptyString(request),
     );
     const isEmptyString = response.data.data.value;
-    term.emptyString = isEmptyString;
+    term._emptyString = isEmptyString;
 
     if (isEmptyString) {
-      term.cardinality = new Cardinality("integer", 1);
-      term.length = new Length(0, 0);
+      term._cardinality = new Integer(1);
+      term._length = new Length(0, 0);
     }
 
     return isEmptyString;
@@ -337,8 +387,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<boolean> {
-    if (term.total !== null) {
-      return term.total;
+    if (term._total !== null) {
+      return term._total;
     }
 
     const request: TermRequest = {
@@ -349,11 +399,11 @@ export class RegexSolverClient {
       this.analyzeApi.total(request),
     );
     const isTotal = response.data.data.value;
-    term.total = isTotal;
+    term._total = isTotal;
 
     if (isTotal) {
-      term.cardinality = new Cardinality("infinite");
-      term.length = new Length(0, null);
+      term._cardinality = new Infinite();
+      term._length = new Length(0, null);
     }
 
     return isTotal;
@@ -369,8 +419,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<string> {
-    if (term.pattern !== null) {
-      return term.pattern;
+    if (term._pattern !== null) {
+      return term._pattern;
     }
 
     const request: TermRequest = {
@@ -381,7 +431,7 @@ export class RegexSolverClient {
       this.analyzeApi.pattern(request),
     );
     const pattern = response.data.data.value;
-    term.pattern = pattern;
+    term._pattern = pattern;
     return pattern;
   }
 
@@ -392,8 +442,8 @@ export class RegexSolverClient {
    * @returns DOT string.
    */
   public async getDot(term: Term, executionTimeout?: number): Promise<string> {
-    if (term.dot !== null) {
-      return term.dot;
+    if (term._dot !== null) {
+      return term._dot;
     }
 
     const request: TermRequest = {
@@ -404,7 +454,7 @@ export class RegexSolverClient {
       this.analyzeApi.dot(request),
     );
     const dot = response.data.data.value;
-    term.dot = dot;
+    term._dot = dot;
     return dot;
   }
 
@@ -569,8 +619,8 @@ export class RegexSolverClient {
     let termToUse = term;
     let returnStableTerm = false;
 
-    if (term.stableTerm !== null) {
-      termToUse = term.stableTerm;
+    if (term._stableTerm !== null) {
+      termToUse = term._stableTerm;
     } else {
       returnStableTerm = true;
     }
@@ -587,7 +637,7 @@ export class RegexSolverClient {
     );
     const data = response.data.data;
     if (data.term) {
-      term.stableTerm = Term.fromDto(data.term);
+      term._stableTerm = Term.fromDto(data.term);
     }
     return data.strings.value;
   }
