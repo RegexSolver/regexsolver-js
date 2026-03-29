@@ -24,7 +24,7 @@ const client = new RegexSolverClient({ apiToken: 'YOUR_API_TOKEN' });
 const term1 = Term.regex("(abc|de|fg){2,}");
 const term2 = Term.regex("de.*");
 
-const intersection = await client.intersection([term1, term2]);
+const intersection = await client.intersection(term1, term2);
 const pattern = await client.getPattern(intersection);
 console.log(pattern); // de(abc|de|fg)+
 ```
@@ -45,7 +45,7 @@ The API can handle terms in two formats:
 - `regex`: a regular expression pattern
 - `fair`: FAIR (Fast Automaton Internal Representation), a stable, signed format used internally by the engine
 
-By default, the engine returns whatever the operation produces, with no extra convertion. Override with `responseFormat`:
+By default, the engine returns whatever the operation produces, with no extra convertion. Override with `RequestOptions`:
 
 ```javascript
 import { Term, ResponseFormat } from 'regexsolver';
@@ -53,20 +53,18 @@ import { Term, ResponseFormat } from 'regexsolver';
 const term1 = Term.regex('abcde');
 const term2 = Term.regex('de');
 
-const result1 = await client.union([term1, term2], ResponseFormat.REGEX);
+const result1 = await client.union(term1, term2, { responseFormat: ResponseFormat.REGEX });
 console.log(result1.toString()); // regex=(abc)?de
 
-const result2 = await client.union([term1, term2], ResponseFormat.FAIR);
+const result2 = await client.union(term1, term2, { responseFormat: ResponseFormat.FAIR });
 console.log(result2.toString()); // fair=...
 ```
-
-If the format does not matter, omit `responseFormat` or set it to `ResponseFormat.ANY`.
 
 Regardless of the format, you can always call `getPattern()` to obtain the regex pattern of a term.
 
 ## Bounding execution time
 
-Set a server-side compute timeout in milliseconds with `executionTimeout`:
+Set a server-side compute timeout in milliseconds with `executionTimeout` in `RequestOptions`:
 
 ```javascript
 import { TimeoutExceededError, Term } from 'regexsolver';
@@ -76,7 +74,7 @@ try {
     const term1 = Term.regex('.*ab.*c(de|fg).*dab.*c(de|fg).*ab.*c(de|fg).*dab.*c');
     const term2 = Term.regex('.*abc.*');
     
-    const res = await client.difference(term1, term2, undefined, 100);
+    const res = await client.difference(term1, term2, { executionTimeout: 100 });
 } catch (error) {
     if (error instanceof TimeoutExceededError) {
         console.log(error.message); // The operation took too much time.
@@ -88,7 +86,7 @@ Timeout is best effort. The exact time is not guaranteed.
 
 ## API Overview
 
-`RegexSolverClient` exposes the following methods.
+`RegexSolverClient` exposes the following methods. All methods accept an optional `OperationOptions` object as the last parameter.
 
 ### Analyze
 

@@ -9,7 +9,7 @@ import {
   TwoTermsRequest,
   RepeatRequest,
   GenerateStringsRequest,
-  RequestOptions,
+  RequestOptions as RequestOptionsDto,
 } from "./generated";
 import { Term } from "./models/Term";
 import { Cardinality, Infinite, Integer } from "./models/Cardinality";
@@ -23,6 +23,20 @@ const VERSION = "1.1.0";
 export interface RegexSolverConfig {
   apiToken: string;
   baseUrl?: string;
+}
+
+/**
+ * Options to customize the execution of operations.
+ */
+export interface OperationOptions {
+  /**
+   * Return format of the term.
+   */
+  responseFormat?: ResponseFormat | string;
+  /**
+   * Timeout in milliseconds for the operation.
+   */
+  executionTimeout?: number;
 }
 
 export class RegexSolverClient {
@@ -76,18 +90,15 @@ export class RegexSolverClient {
     );
   }
 
-  private buildOptions(
-    executionTimeout?: number,
-    responseFormat?: ResponseFormat | string,
-  ): RequestOptions {
-    const options: RequestOptions = { schemaVersion: 1 };
-    if (executionTimeout !== undefined) {
-      options.execution = { timeout: executionTimeout };
+  private buildOptions(options?: OperationOptions): RequestOptionsDto {
+    const dto: RequestOptionsDto = { schemaVersion: 1 };
+    if (options?.executionTimeout !== undefined) {
+      dto.execution = { timeout: options.executionTimeout };
     }
-    if (responseFormat !== undefined) {
-      options.response = { format: responseFormat as any };
+    if (options?.responseFormat !== undefined) {
+      dto.response = { format: options.responseFormat as any };
     }
-    return options;
+    return dto;
   }
 
   private async executeWithRetry<T>(
@@ -220,19 +231,19 @@ export class RegexSolverClient {
   /**
    * Computes how many unique strings the term matches.
    * @param term Target term to analyze.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns Cardinality object.
    */
   public async getCardinality(
     term: Term,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<Cardinality> {
     const cached = term.getCachedCardinality();
     if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
-      options: this.buildOptions(executionTimeout),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.cardinality(request),
@@ -247,19 +258,19 @@ export class RegexSolverClient {
   /**
    * Compute the minimum and maximum length of strings matched by the term.
    * @param term Target term to analyze.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns Length object.
    */
   public async getLength(
     term: Term,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<Length> {
     const cached = term.getCachedLength();
     if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
-      options: this.buildOptions(executionTimeout),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.length(request),
@@ -275,17 +286,17 @@ export class RegexSolverClient {
    * Check if the two terms accept exactly the same language.
    * @param term1 First term.
    * @param term2 Second term.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns True if both terms accept the same language.
    */
   public async equivalent(
     term1: Term,
     term2: Term,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<boolean> {
     const request: TwoTermsRequest = {
       terms: [term1.toDto(), term2.toDto()],
-      options: this.buildOptions(executionTimeout),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.equivalent(request),
@@ -297,17 +308,17 @@ export class RegexSolverClient {
    * Check if the first term's language is a subset of the second term's language.
    * @param subset Candidate subset term.
    * @param superset Candidate superset term.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns True if subset's language is contained within superset's language.
    */
   public async subset(
     subset: Term,
     superset: Term,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<boolean> {
     const request: TwoTermsRequest = {
       terms: [subset.toDto(), superset.toDto()],
-      options: this.buildOptions(executionTimeout),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.subset(request),
@@ -318,19 +329,19 @@ export class RegexSolverClient {
   /**
    * Check if the term matches no strings.
    * @param term Target term to analyze.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns True if language is empty.
    */
   public async isEmpty(
     term: Term,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<boolean> {
     const cached = term.getCachedEmpty();
     if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
-      options: this.buildOptions(executionTimeout),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.empty(request),
@@ -349,19 +360,19 @@ export class RegexSolverClient {
   /**
    * Check if the term matches only the empty string.
    * @param term Target term to analyze.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns True if language contains only the empty string.
    */
   public async isEmptyString(
     term: Term,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<boolean> {
     const cached = term.getCachedEmptyString();
     if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
-      options: this.buildOptions(executionTimeout),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.emptyString(request),
@@ -380,19 +391,19 @@ export class RegexSolverClient {
   /**
    * Check if the term matches all the possible strings.
    * @param term Target term to analyze.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns True if language contains all possible strings.
    */
   public async isTotal(
     term: Term,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<boolean> {
     const cached = term.getCachedTotal();
     if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
-      options: this.buildOptions(executionTimeout),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.total(request),
@@ -411,19 +422,19 @@ export class RegexSolverClient {
   /**
    * Return a regular expression pattern that represents the term.
    * @param term Target term to analyze.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns Regex pattern string.
    */
   public async getPattern(
     term: Term,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<string> {
     const existingPattern = term.getPattern();
     if (existingPattern !== null) return existingPattern;
 
     const request: TermRequest = {
       term: term.toDto(),
-      options: this.buildOptions(executionTimeout),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.pattern(request),
@@ -437,16 +448,16 @@ export class RegexSolverClient {
   /**
    * Build a Graphviz DOT representation of the term's automaton.
    * @param term Target term to analyze.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns DOT string.
    */
-  public async getDot(term: Term, executionTimeout?: number): Promise<string> {
+  public async getDot(term: Term, options?: OperationOptions): Promise<string> {
     const cached = term.getCachedDot();
     if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
-      options: this.buildOptions(executionTimeout),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.dot(request),
@@ -461,19 +472,17 @@ export class RegexSolverClient {
 
   /**
    * Concatenate the given terms in order.
-   * @param terms Array of terms to concatenate.
-   * @param responseFormat Desired format of the returned term.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param terms Array of terms or variadic terms to concatenate.
    * @returns New term representing the concatenation.
    */
-  public async concat(
-    terms: Term[],
-    responseFormat?: ResponseFormat | string,
-    executionTimeout?: number,
-  ): Promise<Term> {
+  public async concat(terms: Term[]): Promise<Term>;
+  public async concat(...terms: Term[]): Promise<Term>;
+  public async concat(terms: Term[], options?: OperationOptions): Promise<Term>;
+  public async concat(...args: any[]): Promise<Term> {
+    const { terms, options } = this.parseArgs(args);
     const request: MultiTermsRequest = {
       terms: terms.map((t) => t.toDto()),
-      options: this.buildOptions(executionTimeout, responseFormat),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.computeApi.concat(request),
@@ -483,19 +492,20 @@ export class RegexSolverClient {
 
   /**
    * Computes the intersection of the given terms.
-   * @param terms Array of terms to intersect.
-   * @param responseFormat Desired format of the returned term.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param terms Array of terms or variadic terms to intersect.
    * @returns New term representing the intersection.
    */
+  public async intersection(terms: Term[]): Promise<Term>;
+  public async intersection(...terms: Term[]): Promise<Term>;
   public async intersection(
     terms: Term[],
-    responseFormat?: ResponseFormat | string,
-    executionTimeout?: number,
-  ): Promise<Term> {
+    options?: OperationOptions,
+  ): Promise<Term>;
+  public async intersection(...args: any[]): Promise<Term> {
+    const { terms, options } = this.parseArgs(args);
     const request: MultiTermsRequest = {
       terms: terms.map((t) => t.toDto()),
-      options: this.buildOptions(executionTimeout, responseFormat),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.computeApi.intersection(request),
@@ -505,19 +515,17 @@ export class RegexSolverClient {
 
   /**
    * Computes the union of the given terms.
-   * @param terms Array of terms to unite.
-   * @param responseFormat Desired format of the returned term.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param terms Array of terms or variadic terms to unite.
    * @returns New term representing the union.
    */
-  public async union(
-    terms: Term[],
-    responseFormat?: ResponseFormat | string,
-    executionTimeout?: number,
-  ): Promise<Term> {
+  public async union(terms: Term[]): Promise<Term>;
+  public async union(...terms: Term[]): Promise<Term>;
+  public async union(terms: Term[], options?: OperationOptions): Promise<Term>;
+  public async union(...args: any[]): Promise<Term> {
+    const { terms, options } = this.parseArgs(args);
     const request: MultiTermsRequest = {
       terms: terms.map((t) => t.toDto()),
-      options: this.buildOptions(executionTimeout, responseFormat),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.computeApi.union(request),
@@ -525,23 +533,51 @@ export class RegexSolverClient {
     return Term.fromDto(response.data.data);
   }
 
+  private parseArgs(args: any[]): {
+    terms: Term[];
+    options?: OperationOptions;
+  } {
+    if (args.length === 0) {
+      return { terms: [] };
+    }
+
+    if (Array.isArray(args[0])) {
+      return {
+        terms: args[0],
+        options: args[1],
+      };
+    }
+
+    // Variadic
+    // Check if last arg is options object
+    const lastArg = args[args.length - 1];
+    if (
+      args.length > 1 &&
+      typeof lastArg === "object" &&
+      lastArg !== null &&
+      !(lastArg instanceof Term)
+    ) {
+      return { terms: args.slice(0, -1), options: lastArg };
+    }
+
+    return { terms: args };
+  }
+
   /**
    * Computes the difference between the two provided terms.
    * @param base Term to subtract from.
    * @param excluded Term to exclude.
-   * @param responseFormat Desired format of the returned term.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns New term representing the difference.
    */
   public async difference(
     base: Term,
     excluded: Term,
-    responseFormat?: ResponseFormat | string,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<Term> {
     const request: TwoTermsRequest = {
       terms: [base.toDto(), excluded.toDto()],
-      options: this.buildOptions(executionTimeout, responseFormat),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.computeApi.difference(request),
@@ -554,22 +590,20 @@ export class RegexSolverClient {
    * @param term Term to repeat.
    * @param min Minimum number of repetitions.
    * @param max Maximum number of repetitions (optional, unbounded if null).
-   * @param responseFormat Desired format of the returned term.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns New term representing the repetition.
    */
   public async repeat(
     term: Term,
     min: number,
     max?: number | null,
-    responseFormat?: ResponseFormat | string,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<Term> {
     const request: RepeatRequest = {
       term: term.toDto(),
       min,
       max,
-      options: this.buildOptions(executionTimeout, responseFormat),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.computeApi.repeat(request),
@@ -580,18 +614,16 @@ export class RegexSolverClient {
   /**
    * Computes the complement of the given term.
    * @param term Term to complement.
-   * @param responseFormat Desired format of the returned term.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns New term representing the complement.
    */
   public async complement(
     term: Term,
-    responseFormat?: ResponseFormat | string,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<Term> {
     const request: TermRequest = {
       term: term.toDto(),
-      options: this.buildOptions(executionTimeout, responseFormat),
+      options: this.buildOptions(options),
     };
     const response = await this.executeWithRetry(() =>
       this.computeApi.complement(request),
@@ -606,14 +638,14 @@ export class RegexSolverClient {
    * @param term Source term to generate strings from.
    * @param limit Maximum number of unique strings to return.
    * @param offset Number of matched strings to skip before starting to collect the results. Used for pagination.
-   * @param executionTimeout Timeout in milliseconds for the operation.
+   * @param options Options object.
    * @returns Array of unique strings.
    */
   public async generateStrings(
     term: Term,
     limit: number,
     offset: number,
-    executionTimeout?: number,
+    options?: OperationOptions,
   ): Promise<string[]> {
     let termToUse = term;
     let returnStableTerm = false;
@@ -630,7 +662,7 @@ export class RegexSolverClient {
       limit,
       offset,
       returnStableTerm,
-      options: this.buildOptions(executionTimeout),
+      options: this.buildOptions(options),
     };
 
     const response = await this.executeWithRetry(() =>
