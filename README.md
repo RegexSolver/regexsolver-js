@@ -1,5 +1,4 @@
 # RegexSolver JS API Client
-
 [Homepage](https://regexsolver.com) | [Online Demo](https://regexsolver.com/demo) | [Documentation](https://docs.regexsolver.com) | [Developer Console](https://console.regexsolver.com)
 
 **RegexSolver** is a powerful toolkit for building, combining, and analyzing regular expressions. It is designed for constraint solvers, test generators, and other systems that need advanced regex operations.
@@ -7,37 +6,28 @@
 ## Installation
 
 ```sh
-npm i regexsolver
-# or
-yarn add regexsolver
-# or
-pnpm add regexsolver
+npm install regexsolver
 ```
 
-## Usage
+Requirements: **Node.js >= 16**
+
+## Quick Start
 
 1. Create an API token in the [Developer Console](https://console.regexsolver.com/).
-2. Initialize the client and start working with terms:
+2. Initialize the client and start working with terms.
 
 ```javascript
-import { RegexSolver, Term } from 'regexsolver';
+import { RegexSolverClient, Term } from 'regexsolver';
 
-// Set REGEXSOLVER_API_TOKEN in your env and call initialize(),
-// or pass the token directly:
-RegexSolver.initialize(); // or RegexSolver.initialize('YOUR_API_TOKEN')
+const client = new RegexSolverClient({ apiToken: 'YOUR_API_TOKEN' });
 
 const term1 = Term.regex("(abc|de|fg){2,}");
 const term2 = Term.regex("de.*");
-const term3 = Term.regex(".*abc");
 
-const term4 = Term.regex(".+(abc|de).+");
-
-term1.intersection(term2, term3)
-    .then(result => result.difference(term4))
-    .then(result => result.getPattern())
-    .then(result => console.log(result)); // de(fg)*abc
+const intersection = await client.intersection([term1, term2]);
+const pattern = await client.getPattern(intersection);
+console.log(pattern); // de(abc|de|fg)+
 ```
-
 
 ## Key Concepts & Limitations
 
@@ -48,7 +38,6 @@ RegexSolver supports a subset of regular expressions that adhere to the principl
 - **Greedy/Ungreedy Quantifiers:** The concept of ungreedy (`*?`, `+?`, `??`) quantifiers is not supported. All quantifiers are treated as greedy. For example, `a*` or `a*?` will match the longest possible sequence of "a"s.
 - **Line Feed and Dot:** RegexSolver handles all characters the same way. The dot `.` matches any Unicode character including line feed (`\n`).
 - **Empty Regular Expressions:** The empty language (matches no string) is represented by constructs like `[]` (empty character class). This is distinct from the empty string.
-
 
 ## Response Formats
 
@@ -61,15 +50,14 @@ By default, the engine returns whatever the operation produces, with no extra co
 ```javascript
 import { Term, ResponseFormat } from 'regexsolver';
 
-const term = Term.regex('abcde');
+const term1 = Term.regex('abcde');
+const term2 = Term.regex('de');
 
-term.union(Term.regex('de'), { responseFormat: ResponseFormat.REGEX }).then(result => {
-  console.log(result.toString()); // regex=(abc)?de
-});
+const result1 = await client.union([term1, term2], ResponseFormat.REGEX);
+console.log(result1.toString()); // regex=(abc)?de
 
-term.union(Term.regex('de'), { responseFormat: ResponseFormat.FAIR }).then(result => {
-  console.log(result.toString()); // fair=...
-});
+const result2 = await client.union([term1, term2], ResponseFormat.FAIR);
+console.log(result2.toString()); // fair=...
 ```
 
 If the format does not matter, omit `responseFormat` or set it to `ResponseFormat.ANY`.
@@ -81,69 +69,57 @@ Regardless of the format, you can always call `getPattern()` to obtain the regex
 Set a server-side compute timeout in milliseconds with `executionTimeout`:
 
 ```javascript
-import { ApiError, Term } from 'regexsolver';
+import { TimeoutExceededError, Term } from 'regexsolver';
 
-// Limit the server-side compute time to 5 ms
-Term.regex('.*ab.*c(de|fg).*dab.*c(de|fg).*ab.*c(de|fg).*dab.*c')
-    .difference(Term.regex('.*abc.*'), { executionTimeout: 5 })
-    .then(res => {/* */})
-    .catch(err => {
-      if (err instanceof ApiError) {
-        console.log(err.message); // The operation took too much time.
-      } else {
-        throw err;
-      }
-    });
+// Limit the server-side compute time to 100 ms
+try {
+    const term1 = Term.regex('.*ab.*c(de|fg).*dab.*c(de|fg).*ab.*c(de|fg).*dab.*c');
+    const term2 = Term.regex('.*abc.*');
+    
+    const res = await client.difference(term1, term2, undefined, 100);
+} catch (error) {
+    if (error instanceof TimeoutExceededError) {
+        console.log(error.message); // The operation took too much time.
+    }
+}
 ```
 
 Timeout is best effort. The exact time is not guaranteed.
 
 ## API Overview
 
-`Term` exposes the following methods.
-
-### Build
-| Method | Return | Description |
-| -------- | ------- | ------- |
-| `Term.fair(fair: string)` | `Term` | Creates a term from a FAIR. |
-| `Term.regex(regex: string)` | `Term` | Creates a term from a regex pattern. |
+`RegexSolverClient` exposes the following methods.
 
 ### Analyze
 
 | Method | Return | Description |
 | -------- | ------- | ------- |
-| `t.equivalent(term: Term, opts?)` | `Promise<boolean>` | `true` if `t` and `term` accept exactly the same language. Supports `executionTimeout`. |
-| `t.getCardinality()` | `Promise<Cardinality>` | Returns the cardinality of the term (i.e., the number of possible matched strings). |
-| `t.getDot()` | `Promise<string>` | Returns a Graphviz DOT representation of the automaton for the term. |
-| `t.getFair()` | `string` | Returns the FAIR of the term if defined. |
-| `t.getLength()` | `Promise<Length>` | Returns the minimum and maximum length of matched strings. |
-| `t.getPattern()` | `Promise<string>` | Returns a regular expression pattern for the term. |
-| `t.isEmpty()` | `Promise<boolean>` | `true` if the term matches no string. |
-| `t.isEmptyString()` | `Promise<boolean>` | `true` if the term matches only the empty string. |
-| `t.isTotal()` | `Promise<boolean>` | `true` if the term matches all possible strings. |
-| `t.subset(term: Term, opts?)` | `Promise<boolean>` | `true` if every string matched by `t` is also matched by `term`. Supports `executionTimeout`. |
+| `client.equivalent(term1, term2)` | `Promise<boolean>` | `true` if `term1` and `term2` accept exactly the same language. |
+| `client.getCardinality(term)` | `Promise<Cardinality>` | Returns the number of possible matched strings. |
+| `client.getDot(term)` | `Promise<string>` | Returns a Graphviz DOT representation of the automaton. |
+| `client.getLength(term)` | `Promise<Length>` | Returns the minimum and maximum length of matched strings. |
+| `client.getPattern(term)` | `Promise<string>` | Returns a regular expression pattern for the term. |
+| `client.isEmpty(term)` | `Promise<boolean>` | `true` if the term matches no string. |
+| `client.isEmptyString(term)` | `Promise<boolean>` | `true` if the term matches only the empty string. |
+| `client.isTotal(term)` | `Promise<boolean>` | `true` if the term matches all possible strings. |
+| `client.subset(term1, term2)` | `Promise<boolean>` | `true` if every string matched by `term1` is also matched by `term2`. |
 
 ### Compute
 
 | Method | Return | Description |
 | -------- | ------- | ------- |
-| `t.concat(...terms: Term[], opts?)` | `Promise<Term>` | Concatenates `t` with the given terms. Supports `responseFormat` and `executionTimeout`. |
-| `t.difference(term: Term, opts?)` | `Promise<Term>` | Computes the difference `t - term`. Supports `responseFormat` and `executionTimeout`. |
-| `t.intersection(...terms: Term[], opts?)` | `Promise<Term>` | Computes the intersection of `t` with the given terms. Supports `responseFormat` and `executionTimeout`. |
-| `t.repeat(min: number, max?: number, opts?)` | `Promise<Term>` | Computes the repetition of the term between `min` and `max` times; if `max` is `null`, the repetition is unbounded. Supports `responseFormat` and `executionTimeout`. |
-| `t.union(...terms: Term[], opts?)` | `Promise<Term>` | Computes the union of `t` with the given terms. Supports `responseFormat` and `executionTimeout`. |
+| `client.complement(term)` | `Promise<Term>` | Computes the complement of the given term. |
+| `client.concat(terms)` | `Promise<Term>` | Concatenates multiple terms in order. |
+| `client.difference(term1, term2)` | `Promise<Term>` | Computes the difference `term1 - term2`. |
+| `client.intersection(terms)` | `Promise<Term>` | Computes the intersection of the given terms. |
+| `client.repeat(term, min, max)` | `Promise<Term>` | Computes the repetition of the term between `min` and `max` times. |
+| `client.union(terms)` | `Promise<Term>` | Computes the union of the given terms. |
 
 ### Generate
 
 | Method | Return | Description |
 | -------- | ------- | ------- |
-| `t.generateStrings(count: number, opts?)` | `Promise<string[]>` | Generates up to `count` unique example strings matched by `t`. Supports `executionTimeout`. |
-
-### Other
-| Method | Return | Description |
-| -------- | ------- | ------- |
-| `t.serialize()` | `string` | Returns a serialized form of `t`. |
-| `Term.deserialize(string: string)` | `Term` | Returns a deserialized term from the given `string`. |
+| `client.generateStrings(term, limit, offset)` | `Promise<string[]>` | Generates up to `limit` unique strings matched by `term`, skipping the first `offset` strings. |
 
 ## Cross-Language Support
 
