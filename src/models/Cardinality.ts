@@ -2,7 +2,6 @@ import { Cardinality as CardinalityDto } from "../generated";
 import { TermPropertiesMixin } from "./TermPropertiesMixin";
 
 export abstract class Cardinality extends TermPropertiesMixin {
-  /** Base class representing the number of unique strings matched by a term. */
   public abstract readonly type: "integer" | "bigInteger" | "infinite";
 
   public static fromDto(dto: CardinalityDto): Cardinality {
@@ -13,18 +12,6 @@ export abstract class Cardinality extends TermPropertiesMixin {
     } else {
       return new Infinite();
     }
-  }
-
-  public isEmpty(): boolean | undefined {
-    return undefined;
-  }
-
-  public isEmptyString(): boolean | undefined {
-    return undefined;
-  }
-
-  public isTotal(): boolean | undefined {
-    return undefined;
   }
 
   public isInfinite(): this is Infinite {
@@ -44,8 +31,8 @@ export abstract class Cardinality extends TermPropertiesMixin {
   }
 }
 
+/** Indicates that the set of matched strings is infinite. */
 export class Infinite extends Cardinality {
-  /** Indicates that the set of matched strings is infinite. */
   public readonly type = "infinite";
 
   public isEmpty(): boolean | undefined {
@@ -61,8 +48,8 @@ export class Infinite extends Cardinality {
   }
 }
 
+/** Indicates that the set of matched strings is finite but too large to be returned as a standard integer. */
 export class BigInteger extends Cardinality {
-  /** Indicates that the set of matched strings is finite but too large to be returned as a standard integer. */
   public readonly type = "bigInteger";
 
   public isEmpty(): boolean | undefined {
@@ -82,10 +69,10 @@ export class BigInteger extends Cardinality {
   }
 }
 
+/** Indicates that the set of matched strings is finite and exactly calculable.
+ * @param value The exact count of uniquely matched strings.
+ */
 export class Integer extends Cardinality {
-  /** * Indicates that the set of matched strings is finite and exactly calculable.
-   * * @param value The exact count of uniquely matched strings.
-   */
   public readonly type = "integer";
   public readonly value: number;
 

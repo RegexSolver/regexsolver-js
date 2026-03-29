@@ -227,9 +227,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<Cardinality> {
-    if (term._cardinality !== null) {
-      return term._cardinality;
-    }
+    const cached = term.getCachedCardinality();
+    if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
@@ -238,8 +237,10 @@ export class RegexSolverClient {
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.cardinality(request),
     );
+
     const cardinality = Cardinality.fromDto(response.data.data);
-    term._cardinality = cardinality;
+    term.setCachedCardinality(cardinality);
+    term._setPropertiesMixin(cardinality as any);
     return cardinality;
   }
 
@@ -253,9 +254,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<Length> {
-    if (term._length !== null) {
-      return term._length;
-    }
+    const cached = term.getCachedLength();
+    if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
@@ -264,8 +264,10 @@ export class RegexSolverClient {
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.length(request),
     );
+
     const length = Length.fromDto(response.data.data);
-    term._length = length;
+    term.setCachedLength(length);
+    term._setPropertiesMixin(length as any);
     return length;
   }
 
@@ -323,9 +325,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<boolean> {
-    if (term._empty !== null) {
-      return term._empty;
-    }
+    const cached = term.getCachedEmpty();
+    if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
@@ -334,14 +335,14 @@ export class RegexSolverClient {
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.empty(request),
     );
+
     const isEmpty = response.data.data.value;
-    term._empty = isEmpty;
+    term.setCachedEmpty(isEmpty);
 
     if (isEmpty) {
-      term._cardinality = new Integer(0);
-      term._length = new Length(null, null);
+      term.setCachedCardinality(new Integer(0));
+      term.setCachedLength(new Length(null, null));
     }
-
     return isEmpty;
   }
 
@@ -355,9 +356,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<boolean> {
-    if (term._emptyString !== null) {
-      return term._emptyString;
-    }
+    const cached = term.getCachedEmptyString();
+    if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
@@ -366,14 +366,14 @@ export class RegexSolverClient {
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.emptyString(request),
     );
+
     const isEmptyString = response.data.data.value;
-    term._emptyString = isEmptyString;
+    term.setCachedEmptyString(isEmptyString);
 
     if (isEmptyString) {
-      term._cardinality = new Integer(1);
-      term._length = new Length(0, 0);
+      term.setCachedCardinality(new Integer(1));
+      term.setCachedLength(new Length(0, 0));
     }
-
     return isEmptyString;
   }
 
@@ -387,9 +387,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<boolean> {
-    if (term._total !== null) {
-      return term._total;
-    }
+    const cached = term.getCachedTotal();
+    if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
@@ -398,14 +397,14 @@ export class RegexSolverClient {
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.total(request),
     );
+
     const isTotal = response.data.data.value;
-    term._total = isTotal;
+    term.setCachedTotal(isTotal);
 
     if (isTotal) {
-      term._cardinality = new Infinite();
-      term._length = new Length(0, null);
+      term.setCachedCardinality(new Infinite());
+      term.setCachedLength(new Length(0, null));
     }
-
     return isTotal;
   }
 
@@ -419,9 +418,8 @@ export class RegexSolverClient {
     term: Term,
     executionTimeout?: number,
   ): Promise<string> {
-    if (term._pattern !== null) {
-      return term._pattern;
-    }
+    const existingPattern = term.getPattern();
+    if (existingPattern !== null) return existingPattern;
 
     const request: TermRequest = {
       term: term.toDto(),
@@ -430,8 +428,9 @@ export class RegexSolverClient {
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.pattern(request),
     );
+
     const pattern = response.data.data.value;
-    term._pattern = pattern;
+    term.setCachedPattern(pattern);
     return pattern;
   }
 
@@ -442,9 +441,8 @@ export class RegexSolverClient {
    * @returns DOT string.
    */
   public async getDot(term: Term, executionTimeout?: number): Promise<string> {
-    if (term._dot !== null) {
-      return term._dot;
-    }
+    const cached = term.getCachedDot();
+    if (cached !== null) return cached;
 
     const request: TermRequest = {
       term: term.toDto(),
@@ -453,8 +451,9 @@ export class RegexSolverClient {
     const response = await this.executeWithRetry(() =>
       this.analyzeApi.dot(request),
     );
+
     const dot = response.data.data.value;
-    term._dot = dot;
+    term.setCachedDot(dot);
     return dot;
   }
 
@@ -619,8 +618,9 @@ export class RegexSolverClient {
     let termToUse = term;
     let returnStableTerm = false;
 
-    if (term._stableTerm !== null) {
-      termToUse = term._stableTerm;
+    const stableTerm = term.getCachedStableTerm();
+    if (stableTerm !== null) {
+      termToUse = stableTerm;
     } else {
       returnStableTerm = true;
     }
@@ -632,13 +632,16 @@ export class RegexSolverClient {
       returnStableTerm,
       options: this.buildOptions(executionTimeout),
     };
+
     const response = await this.executeWithRetry(() =>
       this.generateApi.strings(request),
     );
+
     const data = response.data.data;
     if (data.term) {
-      term._stableTerm = Term.fromDto(data.term);
+      term.setCachedStableTerm(Term.fromDto(data.term));
     }
+
     return data.strings.value;
   }
 }
