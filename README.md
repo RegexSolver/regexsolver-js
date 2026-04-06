@@ -19,14 +19,18 @@ Requirements: **Node.js >= 16**
 ```javascript
 import { RegexSolverClient, Term } from 'regexsolver';
 
-const client = new RegexSolverClient({ apiToken: 'YOUR_API_TOKEN' });
+async function main() {
+    const client = new RegexSolverClient({ apiToken: 'YOUR_API_TOKEN' });
 
-const term1 = Term.regex("(abc|de|fg){2,}");
-const term2 = Term.regex("de.*");
+    const term1 = Term.regex("(abc|de|fg){2,}");
+    const term2 = Term.regex("de.*");
 
-const intersection = await client.intersection(term1, term2);
-const pattern = await client.getPattern(intersection);
-console.log(pattern); // de(abc|de|fg)+
+    const intersection = await client.intersection(term1, term2);
+    const pattern = await client.getPattern(intersection);
+    console.log(pattern); // de(abc|de|fg)+
+}
+
+main();
 ```
 
 ## Key Concepts & Limitations
@@ -45,7 +49,7 @@ The API can handle terms in two formats:
 - `regex`: a regular expression pattern
 - `fair`: FAIR (Fast Automaton Internal Representation), a stable, signed format used internally by the engine
 
-By default, the engine returns whatever the operation produces, with no extra convertion. Override with `RequestOptions`:
+By default, the engine returns whatever the operation produces, with no extra convertion. Override with `OperationOptions`:
 
 ```javascript
 import { Term, ResponseFormat } from 'regexsolver';
@@ -64,7 +68,7 @@ Regardless of the format, you can always call `getPattern()` to obtain the regex
 
 ## Bounding execution time
 
-Set a server-side compute timeout in milliseconds with `executionTimeout` in `RequestOptions`:
+Set a server-side compute timeout in milliseconds with `executionTimeout` in `OperationOptions`:
 
 ```javascript
 import { TimeoutExceededError, Term } from 'regexsolver';
@@ -92,32 +96,32 @@ Timeout is best effort. The exact time is not guaranteed.
 
 | Method | Return | Description |
 | -------- | ------- | ------- |
-| `client.equivalent(term1, term2)` | `Promise<boolean>` | `true` if `term1` and `term2` accept exactly the same language. |
-| `client.getCardinality(term)` | `Promise<Cardinality>` | Returns the number of possible matched strings. |
-| `client.getDot(term)` | `Promise<string>` | Returns a Graphviz DOT representation of the automaton. |
-| `client.getLength(term)` | `Promise<Length>` | Returns the minimum and maximum length of matched strings. |
-| `client.getPattern(term)` | `Promise<string>` | Returns a regular expression pattern for the term. |
-| `client.isEmpty(term)` | `Promise<boolean>` | `true` if the term matches no string. |
-| `client.isEmptyString(term)` | `Promise<boolean>` | `true` if the term matches only the empty string. |
-| `client.isTotal(term)` | `Promise<boolean>` | `true` if the term matches all possible strings. |
-| `client.subset(term1, term2)` | `Promise<boolean>` | `true` if every string matched by `term1` is also matched by `term2`. |
+| `client.equivalent(term1, term2, options?)` | `Promise<boolean>` | `true` if `term1` and `term2` accept exactly the same language. |
+| `client.getCardinality(term, options?)` | `Promise<Cardinality>` | Returns the number of possible matched strings. |
+| `client.getDot(term, options?)` | `Promise<string>` | Returns a Graphviz DOT representation of the automaton. |
+| `client.getLength(term, options?)` | `Promise<Length>` | Returns the minimum and maximum length of matched strings. |
+| `client.getPattern(term, options?)` | `Promise<string>` | Returns a regular expression pattern for the term. |
+| `client.isEmpty(term, options?)` | `Promise<boolean>` | `true` if the term matches no string. |
+| `client.isEmptyString(term, options?)` | `Promise<boolean>` | `true` if the term matches only the empty string. |
+| `client.isTotal(term, options?)` | `Promise<boolean>` | `true` if the term matches all possible strings. |
+| `client.subset(term1, term2, options?)` | `Promise<boolean>` | `true` if every string matched by `term1` is also matched by `term2`. |
 
 ### Compute
 
 | Method | Return | Description |
 | -------- | ------- | ------- |
-| `client.complement(term)` | `Promise<Term>` | Computes the complement of the given term. |
-| `client.concat(terms)` | `Promise<Term>` | Concatenates multiple terms in order. |
-| `client.difference(term1, term2)` | `Promise<Term>` | Computes the difference `term1 - term2`. |
-| `client.intersection(terms)` | `Promise<Term>` | Computes the intersection of the given terms. |
-| `client.repeat(term, min, max)` | `Promise<Term>` | Computes the repetition of the term between `min` and `max` times. |
-| `client.union(terms)` | `Promise<Term>` | Computes the union of the given terms. |
+| `client.complement(term, options?)` | `Promise<Term>` | Computes the complement of the given term. |
+| `client.concat(term1, term2, ..., options?)` | `Promise<Term>` | Concatenates multiple terms in order. |
+| `client.difference(term1, term2, options?)` | `Promise<Term>` | Computes the difference `term1 - term2`. |
+| `client.intersection(term1, term2, ..., options?)` | `Promise<Term>` | Computes the intersection of the given terms. |
+| `client.repeat(term, min, max, options?)` | `Promise<Term>` | Computes the repetition of the term between `min` and `max` times. |
+| `client.union(term1, term2, ..., options?)` | `Promise<Term>` | Computes the union of the given terms. |
 
 ### Generate
 
 | Method | Return | Description |
 | -------- | ------- | ------- |
-| `client.generateStrings(term, limit, offset)` | `Promise<string[]>` | Generates up to `limit` unique strings matched by `term`, skipping the first `offset` strings. |
+| `client.generateStrings(term, limit, offset, options?)` | `Promise<string[]>` | Generates up to `limit` unique strings matched by `term`, skipping the first `offset` strings. |
 
 ## Cross-Language Support
 
