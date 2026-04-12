@@ -20,7 +20,7 @@ Requirements: **Node.js >= 16**
 import { RegexSolverClient, Term } from 'regexsolver';
 
 async function main() {
-    const client = new RegexSolverClient({ apiToken: 'YOUR_API_TOKEN' });
+    const client = new RegexSolverClient({ apiToken: 'REGEXSOLVER_API_TOKEN' });
 
     const term1 = Term.regex("(abc|de|fg){2,}");
     const term2 = Term.regex("de.*");
