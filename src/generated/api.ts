@@ -88,9 +88,6 @@ export interface Empty200Response {
     'success': boolean;
     'data': ModelBoolean;
 }
-/**
- * Standard error payload returned when success is false.
- */
 export interface ErrorResponse {
     'success': boolean;
     /**
@@ -102,6 +99,58 @@ export interface ErrorResponse {
      */
     'errorCode'?: string;
 }
+export interface ErrorResponse400 {
+    'success': boolean;
+    /**
+     * Human readable error message.
+     */
+    'error': string;
+    'errorCode'?: ErrorResponse400ErrorCodeEnum;
+}
+
+export const ErrorResponse400ErrorCodeEnum = {
+    InvalidJson: 'InvalidJson',
+    TooManyTerms: 'TooManyTerms',
+    TimeoutTooLarge: 'TimeoutTooLarge',
+    TimeoutExceeded: 'TimeoutExceeded',
+    InvalidNumberOfStringsToGenerate: 'InvalidNumberOfStringsToGenerate',
+    AutomatonTooManyStates: 'AutomatonTooManyStates',
+    RegexSyntaxError: 'RegexSyntaxError',
+} as const;
+
+export type ErrorResponse400ErrorCodeEnum = typeof ErrorResponse400ErrorCodeEnum[keyof typeof ErrorResponse400ErrorCodeEnum];
+
+export interface ErrorResponse401 {
+    'success': boolean;
+    /**
+     * Human readable error message.
+     */
+    'error': string;
+    'errorCode'?: ErrorResponse401ErrorCodeEnum;
+}
+
+export const ErrorResponse401ErrorCodeEnum = {
+    MissingOrMalformedToken: 'MissingOrMalformedToken',
+    InvalidToken: 'InvalidToken',
+} as const;
+
+export type ErrorResponse401ErrorCodeEnum = typeof ErrorResponse401ErrorCodeEnum[keyof typeof ErrorResponse401ErrorCodeEnum];
+
+export interface ErrorResponse403 {
+    'success': boolean;
+    /**
+     * Human readable error message.
+     */
+    'error': string;
+    'errorCode'?: ErrorResponse403ErrorCodeEnum;
+}
+
+export const ErrorResponse403ErrorCodeEnum = {
+    QuotaExceeded: 'QuotaExceeded',
+} as const;
+
+export type ErrorResponse403ErrorCodeEnum = typeof ErrorResponse403ErrorCodeEnum[keyof typeof ErrorResponse403ErrorCodeEnum];
+
 /**
  * Change how the engine executes the operation.
  */

@@ -41,6 +41,12 @@ export class TimeoutExceededError extends BadRequestError {}
 /** Raised when the requested number of strings to generate is below the minimum or exceeds the maximum allowed. */
 export class InvalidNumberOfStringsToGenerate extends BadRequestError {}
 
+/** Raised when the NFA/DFA exceeds the maximum allowed number of states for your current plan. */
+export class AutomatonTooManyStatesError extends BadRequestError {}
+
+/** Raised when the provided regular expression has invalid syntax. */
+export class RegexSyntaxError extends BadRequestError {}
+
 /** Raised when the API returns a 401 Unauthorized error. */
 export class UnauthorizedError extends ApiError {}
 

@@ -180,6 +180,14 @@ export class RegexSolverClient {
             statusCode,
             bodyString,
           );
+        if (errorCode === "AutomatonTooManyStates")
+          return new Exceptions.AutomatonTooManyStatesError(
+            message,
+            statusCode,
+            bodyString,
+          );
+        if (errorCode === "RegexSyntaxError")
+          return new Exceptions.RegexSyntaxError(message, statusCode, bodyString);
         return new Exceptions.BadRequestError(message, statusCode, bodyString);
       case 401:
         if (errorCode === "MissingOrMalformedToken")
