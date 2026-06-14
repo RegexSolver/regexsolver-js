@@ -11,7 +11,7 @@ import {
   GenerateStringsRequest,
   RequestOptions as RequestOptionsDto,
 } from "./generated";
-import { Term } from "./models/Term";
+import { FairTerm, Term } from "./models/Term";
 import { Cardinality, Infinite, Integer } from "./models/Cardinality";
 import { Length } from "./models/Length";
 import { ResponseFormat } from "./models/ResponseFormat";
@@ -33,6 +33,12 @@ export interface OperationOptions {
    * Return format of the term.
    */
   responseFormat?: ResponseFormat | string;
+  /**
+   * When true, guarantees the returned FAIR encodes a deterministic automaton.
+   * Only valid with responseFormat=ResponseFormat.FAIR or when responseFormat is
+   * unset (in which case it defaults to ResponseFormat.FAIR). Throws otherwise.
+   */
+  deterministic?: boolean;
   /**
    * Timeout in milliseconds for the operation.
    */
@@ -95,8 +101,30 @@ export class RegexSolverClient {
     if (options?.executionTimeout !== undefined) {
       dto.execution = { timeout: options.executionTimeout };
     }
-    if (options?.responseFormat !== undefined) {
-      dto.response = { format: options.responseFormat as any };
+
+    const { responseFormat, deterministic } = options ?? {};
+    if (deterministic !== undefined && responseFormat !== undefined) {
+      const fmt = String(responseFormat);
+      if (fmt !== ResponseFormat.FAIR) {
+        throw new Error(
+          `deterministic can only be used with responseFormat=ResponseFormat.FAIR, got ${JSON.stringify(responseFormat)}`,
+        );
+      }
+    }
+
+    if (responseFormat !== undefined || deterministic !== undefined) {
+      dto.response = {};
+      if (responseFormat !== undefined) {
+        dto.response.format = responseFormat as any;
+      }
+      if (deterministic !== undefined) {
+        dto.response.fair = { deterministic };
+        if (responseFormat === undefined) {
+          // FairResponseOptions is only applied when the response format is
+          // "fair", so default to it to honor the deterministic request.
+          dto.response.format = ResponseFormat.FAIR as any;
+        }
+      }
     }
     return dto;
   }
@@ -175,7 +203,7 @@ export class RegexSolverClient {
             bodyString,
           );
         if (errorCode === "InvalidNumberOfStringsToGenerate")
-          return new Exceptions.InvalidNumberOfStringsToGenerate(
+          return new Exceptions.InvalidNumberOfStringsToGenerateError(
             message,
             statusCode,
             bodyString,
@@ -187,7 +215,11 @@ export class RegexSolverClient {
             bodyString,
           );
         if (errorCode === "RegexSyntaxError")
-          return new Exceptions.RegexSyntaxError(message, statusCode, bodyString);
+          return new Exceptions.RegexSyntaxError(
+            message,
+            statusCode,
+            bodyString,
+          );
         return new Exceptions.BadRequestError(message, statusCode, bodyString);
       case 401:
         if (errorCode === "MissingOrMalformedToken")
@@ -428,6 +460,37 @@ export class RegexSolverClient {
   }
 
   /**
+   * Check if the term's automaton is deterministic.
+   * Only a deterministic FAIR guarantees consistent string ordering across paginated generateStrings() calls; call determinize() first if this is false.
+   * @param term The term to analyze.
+   * @param options Options object.
+   * @returns True if the term's automaton is deterministic.
+   */
+  public async isDeterministic(
+    term: Term,
+    options?: OperationOptions,
+  ): Promise<boolean> {
+    if (!(term instanceof FairTerm)) {
+      return false;
+    }
+    const cached = term.getCachedDeterministic();
+    if (cached !== null) return cached;
+
+    const request: TermRequest = {
+      term: term.toDto(),
+      options: this.buildOptions(options),
+    };
+    const response = await this.executeWithRetry(() =>
+      this.analyzeApi.deterministic(request),
+    );
+
+    const isDeterministic = response.data.data.value;
+    term.setCachedDeterministic(isDeterministic);
+
+    return isDeterministic;
+  }
+
+  /**
    * Return a regular expression pattern that represents the term.
    * @param term Target term to analyze.
    * @param options Options object.
@@ -572,7 +635,7 @@ export class RegexSolverClient {
   }
 
   /**
-   * Computes the difference between the two provided terms.
+   * Computes the difference between the two given terms.
    * @param base Term to subtract from.
    * @param excluded Term to exclude.
    * @param options Options object.
@@ -594,7 +657,7 @@ export class RegexSolverClient {
   }
 
   /**
-   * Repeat a term between 'min' and 'max' times.
+   * Repeat a term between `min` and `max` times.
    * @param term Term to repeat.
    * @param min Minimum number of repetitions.
    * @param max Maximum number of repetitions (optional, unbounded if null).
@@ -639,10 +702,33 @@ export class RegexSolverClient {
     return Term.fromDto(response.data.data);
   }
 
+  /**
+   * Computes a deterministic FAIR automaton from the given term.
+   * A deterministic FAIR guarantees consistent string ordering across paginated
+   * generateStrings() calls. Use this when isDeterministic() is false
+   * before calling generateStrings() with an offset.
+   * @param term Term to determinize.
+   * @param options Options object.
+   * @returns A deterministic FAIR.
+   */
+  public async determinize(
+    term: Term,
+    options?: OperationOptions,
+  ): Promise<Term> {
+    const request: TermRequest = {
+      term: term.toDto(),
+      options: this.buildOptions(options),
+    };
+    const response = await this.executeWithRetry(() =>
+      this.computeApi.determinize(request),
+    );
+    return Term.fromDto(response.data.data);
+  }
+
   // --- GENERATE OPERATIONS ---
 
   /**
-   * Generates up to `limit` distinct strings matched by 'term', skipping the first 'offset' strings.
+   * Generates up to `limit` distinct strings matched by `term`, skipping the first `offset` strings.
    * @param term Source term to generate strings from.
    * @param limit Maximum number of unique strings to return.
    * @param offset Number of matched strings to skip before starting to collect the results. Used for pagination.
@@ -655,21 +741,10 @@ export class RegexSolverClient {
     offset: number,
     options?: OperationOptions,
   ): Promise<string[]> {
-    let termToUse = term;
-    let returnStableTerm = false;
-
-    const stableTerm = term.getCachedStableTerm();
-    if (stableTerm !== null) {
-      termToUse = stableTerm;
-    } else {
-      returnStableTerm = true;
-    }
-
     const request: GenerateStringsRequest = {
-      term: termToUse.toDto(),
+      term: term.toDto(),
       limit,
       offset,
-      returnStableTerm,
       options: this.buildOptions(options),
     };
 
@@ -677,11 +752,6 @@ export class RegexSolverClient {
       this.generateApi.strings(request),
     );
 
-    const data = response.data.data;
-    if (data.term) {
-      term.setCachedStableTerm(Term.fromDto(data.term));
-    }
-
-    return data.strings.value;
+    return response.data.data.strings.value;
   }
 }

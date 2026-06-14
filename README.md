@@ -104,6 +104,7 @@ Timeout is best effort. The exact time is not guaranteed.
 | `client.isEmpty(term, options?)` | `Promise<boolean>` | `true` if the term matches no string. |
 | `client.isEmptyString(term, options?)` | `Promise<boolean>` | `true` if the term matches only the empty string. |
 | `client.isTotal(term, options?)` | `Promise<boolean>` | `true` if the term matches all possible strings. |
+| `client.isDeterministic(term, options?)` | `Promise<boolean>` | `true` if the term's automaton is deterministic. Only a deterministic FAIR guarantees consistent string ordering across paginated `generateStrings()` calls; call `determinize()` first if this is `false`. |
 | `client.subset(term1, term2, options?)` | `Promise<boolean>` | `true` if every string matched by `term1` is also matched by `term2`. |
 
 ### Compute
@@ -112,6 +113,7 @@ Timeout is best effort. The exact time is not guaranteed.
 | -------- | ------- | ------- |
 | `client.complement(term, options?)` | `Promise<Term>` | Computes the complement of the given term. |
 | `client.concat(term1, term2, ..., options?)` | `Promise<Term>` | Concatenates multiple terms in order. |
+| `client.determinize(term, options?)` | `Promise<Term>` | Computes a deterministic FAIR for the given term, suitable for consistent pagination with `generateStrings()`. |
 | `client.difference(term1, term2, options?)` | `Promise<Term>` | Computes the difference `term1 - term2`. |
 | `client.intersection(term1, term2, ..., options?)` | `Promise<Term>` | Computes the intersection of the given terms. |
 | `client.repeat(term, min, max, options?)` | `Promise<Term>` | Computes the repetition of the term between `min` and `max` times. |

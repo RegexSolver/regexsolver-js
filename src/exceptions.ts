@@ -39,7 +39,7 @@ export class TimeoutTooLargeError extends BadRequestError {}
 export class TimeoutExceededError extends BadRequestError {}
 
 /** Raised when the requested number of strings to generate is below the minimum or exceeds the maximum allowed. */
-export class InvalidNumberOfStringsToGenerate extends BadRequestError {}
+export class InvalidNumberOfStringsToGenerateError extends BadRequestError {}
 
 /** Raised when the NFA/DFA exceeds the maximum allowed number of states for your current plan. */
 export class AutomatonTooManyStatesError extends BadRequestError {}

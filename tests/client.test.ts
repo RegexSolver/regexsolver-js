@@ -304,7 +304,7 @@ describe("RegexSolverClient", () => {
 
     await expect(
       client.generateStrings(Term.regex("a"), 10, 0),
-    ).rejects.toThrow(Exceptions.InvalidNumberOfStringsToGenerate);
+    ).rejects.toThrow(Exceptions.InvalidNumberOfStringsToGenerateError);
   });
 
   test("error mapping for 401 Unauthorized - Missing or Malformed Token", async () => {

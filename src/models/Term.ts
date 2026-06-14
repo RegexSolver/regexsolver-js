@@ -17,7 +17,6 @@ export abstract class Term {
   private _total: boolean | null = null;
   protected _pattern: string | null = null;
   private _dot: string | null = null;
-  private _stableTerm: Term | null = null;
 
   private _compiledRegex: RegExp | null = null;
 
@@ -35,7 +34,7 @@ export abstract class Term {
   }
 
   public static fair(payload: string): Term {
-    return new FairTerm(payload);
+    return new FairTerm(payload, null);
   }
 
   // --- Shared Behavior ---
@@ -61,7 +60,7 @@ export abstract class Term {
     }
   }
 
-  public isMatch(str: string): boolean {
+  public matches(str: string): boolean {
     const pattern = this.getPattern();
     if (pattern === null) {
       throw new Error(
@@ -105,7 +104,7 @@ export abstract class Term {
     if (dto.type === "regex") {
       return Term.regex(dto.value);
     } else {
-      return Term.fair(dto.value);
+      return new FairTerm(dto.value, dto.metadata?.deterministic ?? null);
     }
   }
 
@@ -160,13 +159,6 @@ export abstract class Term {
     this._dot = dot;
   }
 
-  public getCachedStableTerm(): Term | null {
-    return this._stableTerm;
-  }
-  public setCachedStableTerm(stableTerm: Term | null): void {
-    this._stableTerm = stableTerm;
-  }
-
   public equals(other: any): boolean {
     if (this === other) return true;
     if (!(other instanceof Term)) return false;
@@ -188,8 +180,7 @@ export class RegexTerm extends Term {
   }
 
   public getFair(): string | null {
-    const stable = this.getCachedStableTerm();
-    return stable ? stable.getFair() : null;
+    return null;
   }
 
   public toDto(): TermDto {
@@ -202,12 +193,15 @@ export class RegexTerm extends Term {
 }
 
 export class FairTerm extends Term {
-  constructor(value: string) {
+  private _deterministic: boolean | null = null;
+
+  constructor(value: string, deterministic: boolean | null) {
     super(value);
+    this._deterministic = deterministic;
   }
 
   public getPattern(): string | null {
-    return this._pattern; // Accesses the protected property of the abstract class
+    return this._pattern;
   }
 
   public getFair(): string | null {
@@ -220,5 +214,13 @@ export class FairTerm extends Term {
 
   public serialize(): string {
     return "fair=" + this.getValue();
+  }
+
+  public getCachedDeterministic(): boolean | null {
+    return this._deterministic;
+  }
+
+  public setCachedDeterministic(deterministic: boolean | null) {
+    this._deterministic = deterministic;
   }
 }

@@ -161,7 +161,16 @@ export interface ExecutionOptions {
     'timeout'?: number;
 }
 /**
- * Request to generate up to \'limit\' distinct strings matched by \'term\', skipping the first \'offset\' strings.
+ * Options controlling the FAIR output. Only applied when response format is \"fair\".
+ */
+export interface FairResponseOptions {
+    /**
+     * When true, the returned FAIR is guaranteed to be a deterministic automaton, suitable for consistent pagination with /generate/strings.
+     */
+    'deterministic'?: boolean;
+}
+/**
+ * Request to generate up to `limit` distinct strings matched by `term`, skipping the first `offset` strings. For consistent pagination, `term` should be deterministic.
  */
 export interface GenerateStringsRequest {
     /**
@@ -176,21 +185,13 @@ export interface GenerateStringsRequest {
      * Number of matched strings to skip before starting to collect the results. Used for pagination.
      */
     'offset': number;
-    /**
-     * If set to true, a stable term is returned. This term can be reused in subsequent calls to guarantee no strings are repeated. If the provided term is already stable, it will not be returned.
-     */
-    'returnStableTerm'?: boolean;
     'options'?: RequestOptions;
 }
 /**
- * Response containing distinct strings generated from the requested \'term\'.
+ * Response containing distinct strings generated from the requested `term`.
  */
 export interface GenerateStringsResponse {
     'type': GenerateStringsResponseTypeEnum;
-    /**
-     * A stable term to use in subsequent calls to guarantee the uniqueness of generated strings. Omitted if \'returnStableTerm\' was false in the request, or if the provided term was already stable.
-     */
-    'term'?: Term;
     /**
      * The generated distinct strings.
      */
@@ -273,7 +274,7 @@ export interface MultiTermsRequest {
     'options'?: RequestOptions;
 }
 /**
- * Request to repeat a term between \'min\' and \'max\' times.
+ * Request to repeat a term between `min` and `max` times.
  */
 export interface RepeatRequest {
     /**
@@ -291,7 +292,7 @@ export interface RepeatRequest {
     'options'?: RequestOptions;
 }
 /**
- * Change how the engine handle the operation.
+ * Change how the engine handles the operation.
  */
 export interface RequestOptions {
     /**
@@ -309,6 +310,10 @@ export interface ResponseOptions {
      * Return format of the term.
      */
     'format'?: ResponseOptionsFormatEnum;
+    /**
+     * Options applied when format is \"fair\". Ignored otherwise.
+     */
+    'fair'?: FairResponseOptions;
 }
 
 export const ResponseOptionsFormatEnum = {
@@ -355,6 +360,7 @@ export interface TermFair {
      * FAIR payload.
      */
     'value': string;
+    'metadata'?: TermFairMetadata;
 }
 
 export const TermFairTypeEnum = {
@@ -363,6 +369,15 @@ export const TermFairTypeEnum = {
 
 export type TermFairTypeEnum = typeof TermFairTypeEnum[keyof typeof TermFairTypeEnum];
 
+/**
+ * Metadata describing properties of a FAIR automaton.
+ */
+export interface TermFairMetadata {
+    /**
+     * Whether this FAIR encodes a deterministic automaton. Only a deterministic FAIR guarantees consistent string ordering across paginated /generate/strings requests; call /compute/determinize first if this is false.
+     */
+    'deterministic'?: boolean;
+}
 /**
  * Term encoded as a regular expression pattern.
  */
@@ -381,7 +396,7 @@ export const TermRegexTypeEnum = {
 export type TermRegexTypeEnum = typeof TermRegexTypeEnum[keyof typeof TermRegexTypeEnum];
 
 /**
- * Request a single term.
+ * Request carrying a single term.
  */
 export interface TermRequest {
     'term': Term;
@@ -443,8 +458,47 @@ export const AnalyzeApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * Check if the term\'s automaton is deterministic. Only a deterministic FAIR guarantees consistent string ordering across paginated /generate/strings requests; call /compute/determinize first if this is false.
+         * @summary Deterministic
+         * @param {TermRequest} termRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deterministic: async (termRequest: TermRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'termRequest' is not null or undefined
+            assertParamExists('deterministic', 'termRequest', termRequest)
+            const localVarPath = `/analyze/deterministic`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication BearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(termRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * Build a Graphviz DOT representation of the term\'s automaton.
-         * @summary GraphViz Dot
+         * @summary Graphviz DOT
          * @param {TermRequest} termRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -777,8 +831,21 @@ export const AnalyzeApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Check if the term\'s automaton is deterministic. Only a deterministic FAIR guarantees consistent string ordering across paginated /generate/strings requests; call /compute/determinize first if this is false.
+         * @summary Deterministic
+         * @param {TermRequest} termRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deterministic(termRequest: TermRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Empty200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deterministic(termRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalyzeApi.deterministic']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * Build a Graphviz DOT representation of the term\'s automaton.
-         * @summary GraphViz Dot
+         * @summary Graphviz DOT
          * @param {TermRequest} termRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -900,8 +967,18 @@ export const AnalyzeApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.cardinality(termRequest, options).then((request) => request(axios, basePath));
         },
         /**
+         * Check if the term\'s automaton is deterministic. Only a deterministic FAIR guarantees consistent string ordering across paginated /generate/strings requests; call /compute/determinize first if this is false.
+         * @summary Deterministic
+         * @param {TermRequest} termRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deterministic(termRequest: TermRequest, options?: RawAxiosRequestConfig): AxiosPromise<Empty200Response> {
+            return localVarFp.deterministic(termRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
          * Build a Graphviz DOT representation of the term\'s automaton.
-         * @summary GraphViz Dot
+         * @summary Graphviz DOT
          * @param {TermRequest} termRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -998,8 +1075,19 @@ export class AnalyzeApi extends BaseAPI {
     }
 
     /**
+     * Check if the term\'s automaton is deterministic. Only a deterministic FAIR guarantees consistent string ordering across paginated /generate/strings requests; call /compute/determinize first if this is false.
+     * @summary Deterministic
+     * @param {TermRequest} termRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public deterministic(termRequest: TermRequest, options?: RawAxiosRequestConfig) {
+        return AnalyzeApiFp(this.configuration).deterministic(termRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * Build a Graphviz DOT representation of the term\'s automaton.
-     * @summary GraphViz Dot
+     * @summary Graphviz DOT
      * @param {TermRequest} termRequest 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -1094,7 +1182,7 @@ export class AnalyzeApi extends BaseAPI {
 export const ComputeApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
-         * Computes the complement of the given term.
+         * Compute the complement of the given term.
          * @summary Complement
          * @param {TermRequest} termRequest 
          * @param {*} [options] Override http request option.
@@ -1172,7 +1260,46 @@ export const ComputeApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * Computes the difference between the two provided terms.
+         * Compute a deterministic FAIR.
+         * @summary Determinize
+         * @param {TermRequest} termRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        determinize: async (termRequest: TermRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'termRequest' is not null or undefined
+            assertParamExists('determinize', 'termRequest', termRequest)
+            const localVarPath = `/compute/determinize`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication BearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(termRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Compute the difference between the two given terms.
          * @summary Difference
          * @param {TwoTermsRequest} twoTermsRequest 
          * @param {*} [options] Override http request option.
@@ -1211,7 +1338,7 @@ export const ComputeApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * Computes the intersection of the given terms.
+         * Compute the intersection of the given terms.
          * @summary Intersection
          * @param {MultiTermsRequest} multiTermsRequest 
          * @param {*} [options] Override http request option.
@@ -1250,7 +1377,7 @@ export const ComputeApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * Repeat a term between \'min\' and \'max\' times.
+         * Repeat a term between `min` and `max` times.
          * @summary Repeat
          * @param {RepeatRequest} repeatRequest 
          * @param {*} [options] Override http request option.
@@ -1289,7 +1416,7 @@ export const ComputeApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * Computes the union of the given terms.
+         * Compute the union of the given terms.
          * @summary Union
          * @param {MultiTermsRequest} multiTermsRequest 
          * @param {*} [options] Override http request option.
@@ -1337,7 +1464,7 @@ export const ComputeApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = ComputeApiAxiosParamCreator(configuration)
     return {
         /**
-         * Computes the complement of the given term.
+         * Compute the complement of the given term.
          * @summary Complement
          * @param {TermRequest} termRequest 
          * @param {*} [options] Override http request option.
@@ -1363,7 +1490,20 @@ export const ComputeApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Computes the difference between the two provided terms.
+         * Compute a deterministic FAIR.
+         * @summary Determinize
+         * @param {TermRequest} termRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async determinize(termRequest: TermRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Concat200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.determinize(termRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ComputeApi.determinize']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Compute the difference between the two given terms.
          * @summary Difference
          * @param {TwoTermsRequest} twoTermsRequest 
          * @param {*} [options] Override http request option.
@@ -1376,7 +1516,7 @@ export const ComputeApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Computes the intersection of the given terms.
+         * Compute the intersection of the given terms.
          * @summary Intersection
          * @param {MultiTermsRequest} multiTermsRequest 
          * @param {*} [options] Override http request option.
@@ -1389,7 +1529,7 @@ export const ComputeApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Repeat a term between \'min\' and \'max\' times.
+         * Repeat a term between `min` and `max` times.
          * @summary Repeat
          * @param {RepeatRequest} repeatRequest 
          * @param {*} [options] Override http request option.
@@ -1402,7 +1542,7 @@ export const ComputeApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Computes the union of the given terms.
+         * Compute the union of the given terms.
          * @summary Union
          * @param {MultiTermsRequest} multiTermsRequest 
          * @param {*} [options] Override http request option.
@@ -1424,7 +1564,7 @@ export const ComputeApiFactory = function (configuration?: Configuration, basePa
     const localVarFp = ComputeApiFp(configuration)
     return {
         /**
-         * Computes the complement of the given term.
+         * Compute the complement of the given term.
          * @summary Complement
          * @param {TermRequest} termRequest 
          * @param {*} [options] Override http request option.
@@ -1444,7 +1584,17 @@ export const ComputeApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.concat(multiTermsRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * Computes the difference between the two provided terms.
+         * Compute a deterministic FAIR.
+         * @summary Determinize
+         * @param {TermRequest} termRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        determinize(termRequest: TermRequest, options?: RawAxiosRequestConfig): AxiosPromise<Concat200Response> {
+            return localVarFp.determinize(termRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Compute the difference between the two given terms.
          * @summary Difference
          * @param {TwoTermsRequest} twoTermsRequest 
          * @param {*} [options] Override http request option.
@@ -1454,7 +1604,7 @@ export const ComputeApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.difference(twoTermsRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * Computes the intersection of the given terms.
+         * Compute the intersection of the given terms.
          * @summary Intersection
          * @param {MultiTermsRequest} multiTermsRequest 
          * @param {*} [options] Override http request option.
@@ -1464,7 +1614,7 @@ export const ComputeApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.intersection(multiTermsRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * Repeat a term between \'min\' and \'max\' times.
+         * Repeat a term between `min` and `max` times.
          * @summary Repeat
          * @param {RepeatRequest} repeatRequest 
          * @param {*} [options] Override http request option.
@@ -1474,7 +1624,7 @@ export const ComputeApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.repeat(repeatRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * Computes the union of the given terms.
+         * Compute the union of the given terms.
          * @summary Union
          * @param {MultiTermsRequest} multiTermsRequest 
          * @param {*} [options] Override http request option.
@@ -1491,7 +1641,7 @@ export const ComputeApiFactory = function (configuration?: Configuration, basePa
  */
 export class ComputeApi extends BaseAPI {
     /**
-     * Computes the complement of the given term.
+     * Compute the complement of the given term.
      * @summary Complement
      * @param {TermRequest} termRequest 
      * @param {*} [options] Override http request option.
@@ -1513,7 +1663,18 @@ export class ComputeApi extends BaseAPI {
     }
 
     /**
-     * Computes the difference between the two provided terms.
+     * Compute a deterministic FAIR.
+     * @summary Determinize
+     * @param {TermRequest} termRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public determinize(termRequest: TermRequest, options?: RawAxiosRequestConfig) {
+        return ComputeApiFp(this.configuration).determinize(termRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Compute the difference between the two given terms.
      * @summary Difference
      * @param {TwoTermsRequest} twoTermsRequest 
      * @param {*} [options] Override http request option.
@@ -1524,7 +1685,7 @@ export class ComputeApi extends BaseAPI {
     }
 
     /**
-     * Computes the intersection of the given terms.
+     * Compute the intersection of the given terms.
      * @summary Intersection
      * @param {MultiTermsRequest} multiTermsRequest 
      * @param {*} [options] Override http request option.
@@ -1535,7 +1696,7 @@ export class ComputeApi extends BaseAPI {
     }
 
     /**
-     * Repeat a term between \'min\' and \'max\' times.
+     * Repeat a term between `min` and `max` times.
      * @summary Repeat
      * @param {RepeatRequest} repeatRequest 
      * @param {*} [options] Override http request option.
@@ -1546,7 +1707,7 @@ export class ComputeApi extends BaseAPI {
     }
 
     /**
-     * Computes the union of the given terms.
+     * Compute the union of the given terms.
      * @summary Union
      * @param {MultiTermsRequest} multiTermsRequest 
      * @param {*} [options] Override http request option.
@@ -1565,7 +1726,7 @@ export class ComputeApi extends BaseAPI {
 export const GenerateApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
-         * Generates up to `limit` distinct strings matched by `term`, skipping the first `offset` strings.
+         * Generate up to `limit` distinct strings matched by `term`, skipping the first `offset` strings. Strings are only guaranteed to be distinct within a single call; pagination across calls is only consistent (no repeats or gaps) if `term` is deterministic. Call `/analyze/deterministic` to check, and `/compute/determinize` first if needed.
          * @summary Strings
          * @param {GenerateStringsRequest} generateStringsRequest 
          * @param {*} [options] Override http request option.
@@ -1613,7 +1774,7 @@ export const GenerateApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = GenerateApiAxiosParamCreator(configuration)
     return {
         /**
-         * Generates up to `limit` distinct strings matched by `term`, skipping the first `offset` strings.
+         * Generate up to `limit` distinct strings matched by `term`, skipping the first `offset` strings. Strings are only guaranteed to be distinct within a single call; pagination across calls is only consistent (no repeats or gaps) if `term` is deterministic. Call `/analyze/deterministic` to check, and `/compute/determinize` first if needed.
          * @summary Strings
          * @param {GenerateStringsRequest} generateStringsRequest 
          * @param {*} [options] Override http request option.
@@ -1635,7 +1796,7 @@ export const GenerateApiFactory = function (configuration?: Configuration, baseP
     const localVarFp = GenerateApiFp(configuration)
     return {
         /**
-         * Generates up to `limit` distinct strings matched by `term`, skipping the first `offset` strings.
+         * Generate up to `limit` distinct strings matched by `term`, skipping the first `offset` strings. Strings are only guaranteed to be distinct within a single call; pagination across calls is only consistent (no repeats or gaps) if `term` is deterministic. Call `/analyze/deterministic` to check, and `/compute/determinize` first if needed.
          * @summary Strings
          * @param {GenerateStringsRequest} generateStringsRequest 
          * @param {*} [options] Override http request option.
@@ -1652,7 +1813,7 @@ export const GenerateApiFactory = function (configuration?: Configuration, baseP
  */
 export class GenerateApi extends BaseAPI {
     /**
-     * Generates up to `limit` distinct strings matched by `term`, skipping the first `offset` strings.
+     * Generate up to `limit` distinct strings matched by `term`, skipping the first `offset` strings. Strings are only guaranteed to be distinct within a single call; pagination across calls is only consistent (no repeats or gaps) if `term` is deterministic. Call `/analyze/deterministic` to check, and `/compute/determinize` first if needed.
      * @summary Strings
      * @param {GenerateStringsRequest} generateStringsRequest 
      * @param {*} [options] Override http request option.

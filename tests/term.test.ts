@@ -25,27 +25,27 @@ describe("Term", () => {
     expect(fairTerm.getPattern()).toBe("abc");
   });
 
-  test("isMatch should work for regex terms", () => {
+  test("matches should work for regex terms", () => {
     const term = Term.regex("[a-z]+");
-    expect(term.isMatch("abc")).toBe(true);
-    expect(term.isMatch("123")).toBe(false);
-    expect(term.isMatch("ABC")).toBe(false);
+    expect(term.matches("abc")).toBe(true);
+    expect(term.matches("123")).toBe(false);
+    expect(term.matches("ABC")).toBe(false);
   });
 
-  test("isMatch should work with dotAll equivalent", () => {
+  test("matches should work with dotAll equivalent", () => {
     const term = Term.regex(".+");
-    expect(term.isMatch("abc\ndef")).toBe(true);
+    expect(term.matches("abc\ndef")).toBe(true);
   });
 
-  test("isMatch should be anchored", () => {
+  test("matches should be anchored", () => {
     const term = Term.regex("abc");
-    expect(term.isMatch("abcd")).toBe(false);
-    expect(term.isMatch("xabc")).toBe(false);
+    expect(term.matches("abcd")).toBe(false);
+    expect(term.matches("xabc")).toBe(false);
   });
 
-  test("isMatch should throw for fair terms without cached pattern", () => {
+  test("matches should throw for fair terms without cached pattern", () => {
     const term = Term.fair("payload");
-    expect(() => term.isMatch("abc")).toThrow(
+    expect(() => term.matches("abc")).toThrow(
       "The regex pattern of this term is not defined yet",
     );
   });
