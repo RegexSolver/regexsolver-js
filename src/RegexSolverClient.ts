@@ -220,6 +220,12 @@ export class RegexSolverClient {
             statusCode,
             bodyString,
           );
+        if (errorCode === "FairSyntaxError")
+          return new Exceptions.FairSyntaxError(
+            message,
+            statusCode,
+            bodyString,
+          );
         return new Exceptions.BadRequestError(message, statusCode, bodyString);
       case 401:
         if (errorCode === "MissingOrMalformedToken")

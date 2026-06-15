@@ -47,6 +47,9 @@ export class AutomatonTooManyStatesError extends BadRequestError {}
 /** Raised when the provided regular expression has invalid syntax. */
 export class RegexSyntaxError extends BadRequestError {}
 
+/** Raised when the provided FAIR value is malformed or cannot be decoded. */
+export class FairSyntaxError extends BadRequestError {}
+
 /** Raised when the API returns a 401 Unauthorized error. */
 export class UnauthorizedError extends ApiError {}
 

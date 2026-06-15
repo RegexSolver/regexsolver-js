@@ -116,6 +116,7 @@ export const ErrorResponse400ErrorCodeEnum = {
     InvalidNumberOfStringsToGenerate: 'InvalidNumberOfStringsToGenerate',
     AutomatonTooManyStates: 'AutomatonTooManyStates',
     RegexSyntaxError: 'RegexSyntaxError',
+    FairSyntaxError: 'FairSyntaxError',
 } as const;
 
 export type ErrorResponse400ErrorCodeEnum = typeof ErrorResponse400ErrorCodeEnum[keyof typeof ErrorResponse400ErrorCodeEnum];
