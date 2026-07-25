@@ -19,6 +19,9 @@
     "test": "jest",
     "build": "tsc"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "keywords": [
     "Regular Expression",
     "regex",

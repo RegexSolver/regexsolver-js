@@ -9,7 +9,7 @@
 npm install regexsolver
 ```
 
-Requirements: **Node.js >= 16**
+Requirements: **Node.js >= 18**
 
 ## Quick Start
 
@@ -49,7 +49,7 @@ The API can handle terms in two formats:
 - `regex`: a regular expression pattern
 - `fair`: FAIR (Fast Automaton Internal Representation), a stable, signed format used internally by the engine
 
-By default, the engine returns whatever the operation produces, with no extra convertion. Override with `OperationOptions`, accepted by the operations that return a term:
+By default, the engine returns whatever the operation produces, with no extra conversion. Override with `OperationOptions`, accepted by the operations that return a term:
 
 ```javascript
 import { Term, ResponseFormat } from 'regexsolver';
@@ -63,6 +63,8 @@ console.log(result1.toString()); // regex=(abc)?de
 const result2 = await client.union(term1, term2, { responseFormat: ResponseFormat.FAIR });
 console.log(result2.toString()); // fair=...
 ```
+
+If the format does not matter, omit `responseFormat` or set it to `ResponseFormat.ANY`.
 
 Regardless of the format, you can always call `getPattern()` to obtain the regex pattern of a term.
 
