@@ -3,6 +3,9 @@ import { Cardinality } from "./Cardinality";
 import { Length } from "./Length";
 import { TermPropertiesMixin } from "./TermPropertiesMixin";
 
+/** How the engine renders a language that matches no string at all. */
+const EMPTY_LANGUAGE_PATTERN = "[]";
+
 /**
  * Represents a mathematical term (Regex or FAIR) on which operations can be performed.
  */
@@ -66,6 +69,12 @@ export abstract class Term {
       throw new Error(
         "The regex pattern of this term is not defined yet, call getPattern() on the client to set it.",
       );
+    }
+
+    // The engine renders the empty language as "[]". By definition it matches
+    // nothing, and other engines reject the pattern outright.
+    if (pattern === EMPTY_LANGUAGE_PATTERN) {
+      return false;
     }
 
     if (this._compiledRegex === null) {

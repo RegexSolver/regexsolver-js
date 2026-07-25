@@ -26,9 +26,23 @@ export interface RegexSolverConfig {
 }
 
 /**
- * Options to customize the execution of operations.
+ * Options accepted by every operation.
  */
-export interface OperationOptions {
+export interface ExecutionOptions {
+  /**
+   * Timeout in milliseconds for the operation.
+   */
+  executionTimeout?: number;
+}
+
+/**
+ * Options for operations that return a term.
+ *
+ * Analyze operations and determinize() take {@link ExecutionOptions} instead:
+ * they do not return a caller-shaped term, so responseFormat and deterministic
+ * would have no effect there.
+ */
+export interface OperationOptions extends ExecutionOptions {
   /**
    * Return format of the term.
    */
@@ -39,10 +53,6 @@ export interface OperationOptions {
    * unset (in which case it defaults to ResponseFormat.FAIR). Throws otherwise.
    */
   deterministic?: boolean;
-  /**
-   * Timeout in milliseconds for the operation.
-   */
-  executionTimeout?: number;
 }
 
 export class RegexSolverClient {
@@ -190,6 +200,12 @@ export class RegexSolverClient {
             statusCode,
             bodyString,
           );
+        if (errorCode === "TooFewTerms")
+          return new Exceptions.TooFewTermsError(
+            message,
+            statusCode,
+            bodyString,
+          );
         if (errorCode === "TimeoutTooLarge")
           return new Exceptions.TimeoutTooLargeError(
             message,
@@ -282,7 +298,7 @@ export class RegexSolverClient {
    */
   public async getCardinality(
     term: Term,
-    options?: OperationOptions,
+    options?: ExecutionOptions,
   ): Promise<Cardinality> {
     const cached = term.getCachedCardinality();
     if (cached !== null) return cached;
@@ -309,7 +325,7 @@ export class RegexSolverClient {
    */
   public async getLength(
     term: Term,
-    options?: OperationOptions,
+    options?: ExecutionOptions,
   ): Promise<Length> {
     const cached = term.getCachedLength();
     if (cached !== null) return cached;
@@ -338,7 +354,7 @@ export class RegexSolverClient {
   public async equivalent(
     term1: Term,
     term2: Term,
-    options?: OperationOptions,
+    options?: ExecutionOptions,
   ): Promise<boolean> {
     const request: TwoTermsRequest = {
       terms: [term1.toDto(), term2.toDto()],
@@ -360,7 +376,7 @@ export class RegexSolverClient {
   public async subset(
     subset: Term,
     superset: Term,
-    options?: OperationOptions,
+    options?: ExecutionOptions,
   ): Promise<boolean> {
     const request: TwoTermsRequest = {
       terms: [subset.toDto(), superset.toDto()],
@@ -380,7 +396,7 @@ export class RegexSolverClient {
    */
   public async isEmpty(
     term: Term,
-    options?: OperationOptions,
+    options?: ExecutionOptions,
   ): Promise<boolean> {
     const cached = term.getCachedEmpty();
     if (cached !== null) return cached;
@@ -411,7 +427,7 @@ export class RegexSolverClient {
    */
   public async isEmptyString(
     term: Term,
-    options?: OperationOptions,
+    options?: ExecutionOptions,
   ): Promise<boolean> {
     const cached = term.getCachedEmptyString();
     if (cached !== null) return cached;
@@ -442,7 +458,7 @@ export class RegexSolverClient {
    */
   public async isTotal(
     term: Term,
-    options?: OperationOptions,
+    options?: ExecutionOptions,
   ): Promise<boolean> {
     const cached = term.getCachedTotal();
     if (cached !== null) return cached;
@@ -474,7 +490,7 @@ export class RegexSolverClient {
    */
   public async isDeterministic(
     term: Term,
-    options?: OperationOptions,
+    options?: ExecutionOptions,
   ): Promise<boolean> {
     if (!(term instanceof FairTerm)) {
       return false;
@@ -504,9 +520,9 @@ export class RegexSolverClient {
    */
   public async getPattern(
     term: Term,
-    options?: OperationOptions,
+    options?: ExecutionOptions,
   ): Promise<string> {
-    const existingPattern = term.getPattern();
+    const existingPattern = term.getCachedPattern();
     if (existingPattern !== null) return existingPattern;
 
     const request: TermRequest = {
@@ -528,7 +544,7 @@ export class RegexSolverClient {
    * @param options Options object.
    * @returns DOT string.
    */
-  public async getDot(term: Term, options?: OperationOptions): Promise<string> {
+  public async getDot(term: Term, options?: ExecutionOptions): Promise<string> {
     const cached = term.getCachedDot();
     if (cached !== null) return cached;
 
@@ -719,7 +735,7 @@ export class RegexSolverClient {
    */
   public async determinize(
     term: Term,
-    options?: OperationOptions,
+    options?: ExecutionOptions,
   ): Promise<Term> {
     const request: TermRequest = {
       term: term.toDto(),

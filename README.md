@@ -49,7 +49,7 @@ The API can handle terms in two formats:
 - `regex`: a regular expression pattern
 - `fair`: FAIR (Fast Automaton Internal Representation), a stable, signed format used internally by the engine
 
-By default, the engine returns whatever the operation produces, with no extra convertion. Override with `OperationOptions`:
+By default, the engine returns whatever the operation produces, with no extra convertion. Override with `OperationOptions`, accepted by the operations that return a term:
 
 ```javascript
 import { Term, ResponseFormat } from 'regexsolver';
@@ -90,7 +90,7 @@ Timeout is best effort. The exact time is not guaranteed.
 
 ## API Overview
 
-`RegexSolverClient` exposes the following methods. All methods accept an optional `OperationOptions` object as the last parameter.
+`RegexSolverClient` exposes the following methods. Every method accepts an optional options object as its last parameter: operations that return a term take `OperationOptions` (`responseFormat`, `deterministic`, `executionTimeout`), while analyze operations and `determinize()` take `ExecutionOptions` (`executionTimeout` only) — the response format is not theirs to choose.
 
 ### Analyze
 

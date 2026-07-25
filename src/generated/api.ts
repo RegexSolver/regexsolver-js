@@ -111,6 +111,7 @@ export interface ErrorResponse400 {
 export const ErrorResponse400ErrorCodeEnum = {
     InvalidJson: 'InvalidJson',
     TooManyTerms: 'TooManyTerms',
+    TooFewTerms: 'TooFewTerms',
     TimeoutTooLarge: 'TimeoutTooLarge',
     TimeoutExceeded: 'TimeoutExceeded',
     InvalidNumberOfStringsToGenerate: 'InvalidNumberOfStringsToGenerate',

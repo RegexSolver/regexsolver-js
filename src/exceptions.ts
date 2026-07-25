@@ -32,6 +32,9 @@ export class InvalidJsonError extends BadRequestError {}
 /** Raised when the number of terms provided exceeds the maximum allowed. */
 export class TooManyTermsError extends BadRequestError {}
 
+/** Raised when fewer terms are provided than the operation requires. */
+export class TooFewTermsError extends BadRequestError {}
+
 /** Raised when the requested `execution_timeout` exceeds the maximum allowed for your current plan. */
 export class TimeoutTooLargeError extends BadRequestError {}
 
