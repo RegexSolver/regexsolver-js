@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosResponse } from "axios";
 import {
+  AccountApi,
   AnalyzeApi,
   ComputeApi,
   GenerateApi,
@@ -12,7 +13,9 @@ import {
   RequestOptions as RequestOptionsDto,
 } from "./generated";
 import { FairTerm, Term } from "./models/Term";
+import { AccountLimits } from "./models/AccountLimits";
 import { Cardinality, Infinite, Integer } from "./models/Cardinality";
+import { CharacterOrder, PathOrder } from "./models/GenerateStringsOrder";
 import { Length } from "./models/Length";
 import { ResponseFormat } from "./models/ResponseFormat";
 import * as Exceptions from "./exceptions";
@@ -20,9 +23,30 @@ import { getRateLimiter, RateLimiter } from "./RateLimiter";
 
 const VERSION = "1.1.0";
 
+// Retry policy for 429 responses: retry as long as the total wait stays
+// within the budget, adding full jitter on top of `Retry-After` so concurrent
+// waiters do not re-collide as a single burst. The values are shared across
+// all the official clients — change them together.
+const RETRY_BUDGET_MS = 300_000;
+const JITTER_BASE_S = 0.25;
+const JITTER_CAP_S = 2.0;
+const DEFAULT_RETRY_AFTER_S = 1.0;
+
 export interface RegexSolverConfig {
   apiToken: string;
   baseUrl?: string;
+  /**
+   * When true (the default), calls to concat/intersection/union carrying more
+   * terms than the account's per-request limit are transparently split into
+   * several requests and folded back into one result. Each constituent
+   * request counts against the monthly quota.
+   */
+  autoBatch?: boolean;
+  /**
+   * Upper bound (>= 2) on the number of terms sent in a single request,
+   * overriding the limit fetched from the API when smaller.
+   */
+  maxTermsPerRequest?: number;
 }
 
 /**
@@ -55,18 +79,71 @@ export interface OperationOptions extends ExecutionOptions {
   deterministic?: boolean;
 }
 
+/**
+ * Options accepted by generateStrings().
+ */
+export interface GenerateStringsOptions extends ExecutionOptions {
+  /**
+   * Order in which the paths (shapes) of the language are scheduled.
+   * Defaults to sweep.
+   */
+  pathOrder?: PathOrder | "sweep" | "interleave" | "shuffled";
+  /**
+   * Order in which the strings within each path are produced. Defaults to
+   * ascending.
+   */
+  characterOrder?: CharacterOrder | "ascending" | "shuffled";
+  /**
+   * Seed behind the shuffled modes. The default seed is fixed, so two calls
+   * sharing a seed generate the same strings and `offset` pages through them
+   * consistently.
+   */
+  seed?: number;
+  /**
+   * Shortest string to generate. Shorter strings are left out of the
+   * enumeration entirely, `offset` never counting them.
+   */
+  minLength?: number;
+  /**
+   * Longest string to generate.
+   */
+  maxLength?: number;
+  /**
+   * Restricts generation to the given characters, e.g. `[a-z]`. Paths
+   * requiring a character outside it are dropped.
+   */
+  charset?: string;
+}
+
 export class RegexSolverClient {
   private readonly apiToken: string;
+  private readonly accountApi: AccountApi;
   private readonly analyzeApi: AnalyzeApi;
   private readonly computeApi: ComputeApi;
   private readonly generateApi: GenerateApi;
   private readonly axiosInstance: AxiosInstance;
   private readonly rateLimiter: RateLimiter;
+  private readonly autoBatch: boolean;
+  private readonly maxTermsPerRequest: number | null;
+  private limitsPromise: Promise<AccountLimits> | null = null;
+  private serverMaxTerms: number | null = null;
 
   constructor(config: RegexSolverConfig) {
+    if (!config.apiToken) {
+      throw new Error("apiToken is required");
+    }
+    if (
+      config.maxTermsPerRequest !== undefined &&
+      config.maxTermsPerRequest < 2
+    ) {
+      throw new Error("maxTermsPerRequest must be at least 2");
+    }
+
     this.apiToken = config.apiToken;
     const baseUrl = config.baseUrl || "https://api.regexsolver.com/v1";
     this.rateLimiter = getRateLimiter(this.apiToken);
+    this.autoBatch = config.autoBatch ?? true;
+    this.maxTermsPerRequest = config.maxTermsPerRequest ?? null;
 
     const axiosConfig = {
       baseURL: baseUrl,
@@ -78,17 +155,16 @@ export class RegexSolverClient {
 
     this.axiosInstance = axios.create(axiosConfig);
 
-    // Add rate limit interceptor
-    this.axiosInstance.interceptors.request.use(async (requestConfig) => {
-      await this.rateLimiter.wait();
-      return requestConfig;
-    });
-
     const apiConfiguration = new Configuration({
       accessToken: this.apiToken,
       basePath: baseUrl,
     });
 
+    this.accountApi = new AccountApi(
+      apiConfiguration,
+      baseUrl,
+      this.axiosInstance,
+    );
     this.analyzeApi = new AnalyzeApi(
       apiConfiguration,
       baseUrl,
@@ -142,29 +218,37 @@ export class RegexSolverClient {
   private async executeWithRetry<T>(
     apiCall: () => Promise<AxiosResponse<T>>,
   ): Promise<AxiosResponse<T>> {
-    let retried = false;
+    let attempt = 0;
+    let firstFailureAt: number | null = null;
 
     while (true) {
+      await this.rateLimiter.wait();
+      if (attempt > 0) {
+        const jitterS =
+          Math.random() * Math.min(JITTER_BASE_S * 2 ** attempt, JITTER_CAP_S);
+        await new Promise((resolve) => setTimeout(resolve, jitterS * 1000));
+      }
       try {
         return await apiCall();
       } catch (error) {
-        if (axios.isAxiosError(error) && error.response) {
-          const statusCode = error.response.status;
-          if (statusCode === 429) {
-            if (retried) {
-              throw this.mapError(error);
-            }
-            retried = true;
-            const retryAfter = parseFloat(
-              error.response.headers["retry-after"] || "1",
-            );
-
-            this.rateLimiter.trigger(retryAfter);
-            continue;
-          }
+        if (!(axios.isAxiosError(error) && error.response)) {
+          throw error;
+        }
+        if (error.response.status !== 429) {
           throw this.mapError(error);
         }
-        throw error;
+
+        const retryAfter =
+          parseFloat(error.response.headers["retry-after"]) ||
+          DEFAULT_RETRY_AFTER_S;
+        const now = Date.now();
+        firstFailureAt = firstFailureAt ?? now;
+        if (now - firstFailureAt + retryAfter * 1000 > RETRY_BUDGET_MS) {
+          throw this.mapError(error);
+        }
+
+        this.rateLimiter.trigger(retryAfter);
+        attempt += 1;
       }
     }
   }
@@ -286,6 +370,119 @@ export class RegexSolverClient {
       default:
         return new Exceptions.ApiError(message, statusCode, bodyString);
     }
+  }
+
+  // --- ACCOUNT OPERATIONS ---
+
+  /**
+   * Fetches the plan limits applying to the account.
+   *
+   * The call never consumes request quota (it is only rate-limited) and the
+   * result is cached on the client, so calling it again is free. The cached
+   * maxTermsCount also drives auto-batching.
+   * @returns The five plan limits.
+   */
+  public async getAccountLimits(): Promise<AccountLimits> {
+    if (!this.limitsPromise) {
+      this.limitsPromise = this.executeWithRetry(() =>
+        this.accountApi.limits(),
+      )
+        .then((response) => {
+          const limits = AccountLimits.fromDto(response.data.data!);
+          this.serverMaxTerms = limits.maxTermsCount;
+          return limits;
+        })
+        .catch((error) => {
+          this.limitsPromise = null;
+          throw error;
+        });
+    }
+    return this.limitsPromise;
+  }
+
+  // --- AUTO-BATCHING ---
+
+  /** The largest term count to send in one request, when known. */
+  private effectiveMaxTerms(): number | null {
+    if (this.maxTermsPerRequest !== null) {
+      return this.serverMaxTerms !== null
+        ? Math.min(this.maxTermsPerRequest, this.serverMaxTerms)
+        : this.maxTermsPerRequest;
+    }
+    return this.serverMaxTerms;
+  }
+
+  /**
+   * Run an n-ary operation (concat/intersection/union), transparently
+   * splitting the terms into several requests when they exceed the account's
+   * terms-per-request limit (auto-batching).
+   */
+  private async runNary(
+    terms: Term[],
+    options: OperationOptions | undefined,
+    apiCall: (request: MultiTermsRequest) => Promise<AxiosResponse<any>>,
+  ): Promise<Term> {
+    // Intermediate results are fed straight back into the next request, so
+    // only the final call carries the caller's response options;
+    // executionTimeout bounds every constituent request.
+    const call = async (batch: Term[], final: boolean): Promise<Term> => {
+      const request: MultiTermsRequest = {
+        terms: batch.map((t) => t.toDto()),
+        options: this.buildOptions(
+          final ? options : { executionTimeout: options?.executionTimeout },
+        ),
+      };
+      const response = await this.executeWithRetry(() => apiCall(request));
+      return Term.fromDto(response.data.data);
+    };
+
+    let maxTerms = this.autoBatch ? this.effectiveMaxTerms() : null;
+    if (maxTerms !== null && terms.length > maxTerms) {
+      return this.fold(call, terms, maxTerms);
+    }
+
+    try {
+      return await call(terms, true);
+    } catch (error) {
+      if (
+        !this.autoBatch ||
+        maxTerms !== null ||
+        !(error instanceof Exceptions.TooManyTermsError)
+      ) {
+        throw error;
+      }
+      try {
+        await this.getAccountLimits();
+      } catch {
+        throw error; // fall back to surfacing the original TooManyTerms
+      }
+      maxTerms = this.effectiveMaxTerms();
+      if (maxTerms === null || maxTerms < 2 || terms.length <= maxTerms) {
+        throw error;
+      }
+      return this.fold(call, terms, maxTerms);
+    }
+  }
+
+  /**
+   * Left fold: combine the first `maxTerms` terms, then keep feeding the
+   * accumulated result back with the next `maxTerms - 1` terms.
+   * Left-associative, so concat order is preserved; union and intersection
+   * are commutative and unaffected.
+   */
+  private async fold(
+    call: (batch: Term[], final: boolean) => Promise<Term>,
+    terms: Term[],
+    maxTerms: number,
+  ): Promise<Term> {
+    let acc = await call(terms.slice(0, maxTerms), false);
+    let index = maxTerms;
+    while (index < terms.length) {
+      const batch = [acc, ...terms.slice(index, index + maxTerms - 1)];
+      index += maxTerms - 1;
+      acc = await call(batch, index >= terms.length);
+    }
+    return acc;
   }
 
   // --- ANALYZE OPERATIONS ---
@@ -573,14 +770,9 @@ export class RegexSolverClient {
   public async concat(terms: Term[], options?: OperationOptions): Promise<Term>;
   public async concat(...args: any[]): Promise<Term> {
     const { terms, options } = this.parseArgs(args);
-    const request: MultiTermsRequest = {
-      terms: terms.map((t) => t.toDto()),
-      options: this.buildOptions(options),
-    };
-    const response = await this.executeWithRetry(() =>
+    return this.runNary(terms, options, (request) =>
       this.computeApi.concat(request),
     );
-    return Term.fromDto(response.data.data);
   }
 
   /**
@@ -596,14 +788,9 @@ export class RegexSolverClient {
   ): Promise<Term>;
   public async intersection(...args: any[]): Promise<Term> {
     const { terms, options } = this.parseArgs(args);
-    const request: MultiTermsRequest = {
-      terms: terms.map((t) => t.toDto()),
-      options: this.buildOptions(options),
-    };
-    const response = await this.executeWithRetry(() =>
+    return this.runNary(terms, options, (request) =>
       this.computeApi.intersection(request),
     );
-    return Term.fromDto(response.data.data);
   }
 
   /**
@@ -616,14 +803,9 @@ export class RegexSolverClient {
   public async union(terms: Term[], options?: OperationOptions): Promise<Term>;
   public async union(...args: any[]): Promise<Term> {
     const { terms, options } = this.parseArgs(args);
-    const request: MultiTermsRequest = {
-      terms: terms.map((t) => t.toDto()),
-      options: this.buildOptions(options),
-    };
-    const response = await this.executeWithRetry(() =>
+    return this.runNary(terms, options, (request) =>
       this.computeApi.union(request),
     );
-    return Term.fromDto(response.data.data);
   }
 
   private parseArgs(args: any[]): {
@@ -754,14 +936,14 @@ export class RegexSolverClient {
    * @param term Source term to generate strings from.
    * @param limit Maximum number of unique strings to return.
    * @param offset Number of matched strings to skip before starting to collect the results. Used for pagination.
-   * @param options Options object.
+   * @param options Options object (ordering, seed, length bounds, charset, executionTimeout).
    * @returns Array of unique strings.
    */
   public async generateStrings(
     term: Term,
     limit: number,
     offset: number,
-    options?: OperationOptions,
+    options?: GenerateStringsOptions,
   ): Promise<string[]> {
     const request: GenerateStringsRequest = {
       term: term.toDto(),
@@ -769,6 +951,25 @@ export class RegexSolverClient {
       offset,
       options: this.buildOptions(options),
     };
+    if (options?.pathOrder !== undefined) {
+      request.pathOrder = options.pathOrder as GenerateStringsRequest["pathOrder"];
+    }
+    if (options?.characterOrder !== undefined) {
+      request.characterOrder =
+        options.characterOrder as GenerateStringsRequest["characterOrder"];
+    }
+    if (options?.seed !== undefined) {
+      request.seed = options.seed;
+    }
+    if (options?.minLength !== undefined) {
+      request.minLength = options.minLength;
+    }
+    if (options?.maxLength !== undefined) {
+      request.maxLength = options.maxLength;
+    }
+    if (options?.charset !== undefined) {
+      request.charset = options.charset;
+    }
 
     const response = await this.executeWithRetry(() =>
       this.generateApi.strings(request),

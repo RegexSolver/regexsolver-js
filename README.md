@@ -92,7 +92,7 @@ Timeout is best effort. The exact time is not guaranteed.
 
 ## API Overview
 
-`RegexSolverClient` exposes the following methods. Every method accepts an optional options object as its last parameter: operations that return a term take `OperationOptions` (`responseFormat`, `deterministic`, `executionTimeout`), while analyze operations and `determinize()` take `ExecutionOptions` (`executionTimeout` only) — the response format is not theirs to choose.
+`RegexSolverClient` exposes the following methods. Every method accepts an optional options object as its last parameter: operations that return a term take `OperationOptions` (`responseFormat`, `deterministic`, `executionTimeout`), while analyze operations and `determinize()` take `ExecutionOptions` (`executionTimeout` only); the response format is not theirs to choose. `generateStrings()` takes a `GenerateStringsOptions` carrying its ordering, seed, length and charset options.
 
 ### Analyze
 
@@ -107,7 +107,7 @@ Timeout is best effort. The exact time is not guaranteed.
 | `client.isEmptyString(term, options?)` | `Promise<boolean>` | `true` if the term matches only the empty string. |
 | `client.isTotal(term, options?)` | `Promise<boolean>` | `true` if the term matches all possible strings. |
 | `client.isDeterministic(term, options?)` | `Promise<boolean>` | `true` if the term's automaton is deterministic. Only a deterministic FAIR guarantees consistent string ordering across paginated `generateStrings()` calls; call `determinize()` first if this is `false`. |
-| `client.subset(term1, term2, options?)` | `Promise<boolean>` | `true` if every string matched by `term1` is also matched by `term2`. |
+| `client.subset(subset, superset, options?)` | `Promise<boolean>` | `true` if every string matched by `subset` is also matched by `superset`. |
 
 ### Compute
 
@@ -116,7 +116,7 @@ Timeout is best effort. The exact time is not guaranteed.
 | `client.complement(term, options?)` | `Promise<Term>` | Computes the complement of the given term. |
 | `client.concat(term1, term2, ..., options?)` | `Promise<Term>` | Concatenates multiple terms in order. |
 | `client.determinize(term, options?)` | `Promise<Term>` | Computes a deterministic FAIR for the given term, suitable for consistent pagination with `generateStrings()`. |
-| `client.difference(term1, term2, options?)` | `Promise<Term>` | Computes the difference `term1 - term2`. |
+| `client.difference(base, excluded, options?)` | `Promise<Term>` | Computes the difference `base - excluded`. |
 | `client.intersection(term1, term2, ..., options?)` | `Promise<Term>` | Computes the intersection of the given terms. |
 | `client.repeat(term, min, max, options?)` | `Promise<Term>` | Computes the repetition of the term between `min` and `max` times. |
 | `client.union(term1, term2, ..., options?)` | `Promise<Term>` | Computes the union of the given terms. |
@@ -125,7 +125,7 @@ Timeout is best effort. The exact time is not guaranteed.
 
 | Method | Return | Description |
 | -------- | ------- | ------- |
-| `client.generateStrings(term, limit, offset, options?)` | `Promise<string[]>` | Generates up to `limit` unique strings matched by `term`, skipping the first `offset` strings. |
+| `client.generateStrings(term, limit, offset, options?)` | `Promise<string[]>` | Generates up to `limit` unique strings matched by `term`, skipping the first `offset` strings. The options object controls `pathOrder`, `characterOrder`, `seed`, `minLength`, `maxLength` and `charset`. |
 
 ## Cross-Language Support
 

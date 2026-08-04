@@ -1,37 +1,28 @@
+/**
+ * Shared across all client instances with the same API token.
+ *
+ * Holds a single deadline timestamp. `trigger` keeps the later of the current
+ * and the new deadline, so a longer `Retry-After` arriving while the limiter
+ * is already engaged is never dropped. `wait` sleeps until the deadline and
+ * re-checks it after every wake, so a deadline extended by a concurrent 429
+ * is honored too.
+ */
 export class RateLimiter {
-  private isBlocked = false;
-  private blockPromise: Promise<void> | null = null;
-  private blockTimeout: NodeJS.Timeout | null = null;
+  private deadline = 0;
 
   async wait(): Promise<void> {
-    if (this.isBlocked && this.blockPromise) {
-      await this.blockPromise;
+    while (Date.now() < this.deadline) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, this.deadline - Date.now()),
+      );
     }
   }
 
   trigger(retryAfterSeconds: number): void {
-    if (this.isBlocked) {
-      return;
-    }
-
-    this.isBlocked = true;
-    const waitTime = retryAfterSeconds * 1000;
-
-    let resolveBlock: () => void;
-    this.blockPromise = new Promise((resolve) => {
-      resolveBlock = resolve;
-    });
-
-    if (this.blockTimeout) {
-      clearTimeout(this.blockTimeout);
-    }
-
-    this.blockTimeout = setTimeout(() => {
-      this.isBlocked = false;
-      this.blockPromise = null;
-      this.blockTimeout = null;
-      resolveBlock();
-    }, waitTime);
+    this.deadline = Math.max(
+      this.deadline,
+      Date.now() + retryAfterSeconds * 1000,
+    );
   }
 }
 
