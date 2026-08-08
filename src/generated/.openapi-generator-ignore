@@ -1,0 +1,7 @@
+docs/
+git_push.sh
+.npmignore
+.travis.yml
+.gitignore
+README.md
+LICENSE

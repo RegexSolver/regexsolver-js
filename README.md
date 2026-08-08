@@ -1,11 +1,7 @@
-# RegexSolver Node.js API Client
-
+# RegexSolver JS API Client
 [Homepage](https://regexsolver.com) | [Online Demo](https://regexsolver.com/demo) | [Documentation](https://docs.regexsolver.com) | [Developer Console](https://console.regexsolver.com)
 
-This repository contains the source code of the Node.js library for [RegexSolver](https://regexsolver.com) API.
-
-RegexSolver is a powerful regular expression manipulation toolkit, that gives you the power to manipulate regex as if
-they were sets.
+**RegexSolver** is a powerful toolkit for building, combining, and analyzing regular expressions. It is designed for constraint solvers, test generators, and other systems that need advanced regex operations.
 
 ## Installation
 
@@ -13,195 +9,134 @@ they were sets.
 npm install regexsolver
 ```
 
-## Usage
+Requirements: **Node.js >= 18**
 
-In order to use the library you need to generate an API Token on our [Developer Console](https://console.regexsolver.com/).
+## Quick Start
 
-```javascript
-import { RegexSolver, Term } from 'regexsolver';
-
-RegexSolver.initialize("YOUR TOKEN HERE");
-
-const term1 = Term.regex("(abc|de|fg){2,}");
-const term2 = Term.regex("de.*");
-const term3 = Term.regex(".*abc");
-
-const term4 = Term.regex(".+(abc|de).+");
-
-term1.intersection(term2, term3)
-    .then(result => result.subtraction(term4))
-    .then(result => console.log(result.toString()));
-```
-
-
-## Features
-
-- [Intersection](#intersection)
-- [Union](#union)
-- [Subtraction / Difference](#subtraction--difference)
-- [Equivalence](#equivalence)
-- [Subset](#subset)
-- [Details](#details)
-- [Generate Strings](#generate-strings)
-
-### Intersection
-
-#### Request
-
-Compute the intersection of the provided terms and return the resulting term.
-
-The maximum number of terms is currently limited to 10.
+1. Create an API token in the [Developer Console](https://console.regexsolver.com/).
+2. Initialize the client and start working with terms.
 
 ```javascript
-const term1 = Term.regex("(abc|de){2}");
-const term2 = Term.regex("de.*");
-const term3 = Term.regex(".*abc");
+import { RegexSolverClient, Term } from 'regexsolver';
 
-term1.intersection(term2, term3).then(result => {
-  console.log(result.toString());
-});
+async function main() {
+    const client = new RegexSolverClient({ apiToken: 'REGEXSOLVER_API_TOKEN' });
+
+    const term1 = Term.regex("(abc|de|fg){2,}");
+    const term2 = Term.regex("de.*");
+
+    const intersection = await client.intersection(term1, term2);
+    const pattern = await client.getPattern(intersection);
+    console.log(pattern); // de(abc|de|fg)+
+}
+
+main();
 ```
 
-#### Response
+## Key Concepts & Limitations
 
-```
-regex=deabc
-```
+RegexSolver supports a subset of regular expressions that adhere to the principles of regular languages. Here are the key characteristics and limitations of the regular expressions supported by RegexSolver:
+- **Anchored Expressions:** All regular expressions in RegexSolver are anchored. This means that the expressions are treated as if they start and end at the boundaries of the input text. For example, the expression `abc` will match the string "abc" but not "xabc" or "abcx".
+- **Lookahead/Lookbehind:** RegexSolver does not support lookahead (`(?=...)`) or lookbehind (`(?<=...)`) assertions. Using them returns an error.
+- **Pure Regular Expressions:** RegexSolver focuses on pure regular expressions as defined in regular language theory. This means features that extend beyond regular languages, such as backreferences (`\1`, `\2`, etc.), are not supported. Any use of backreference would return an error.
+- **Greedy/Ungreedy Quantifiers:** The concept of ungreedy (`*?`, `+?`, `??`) quantifiers is not supported. All quantifiers are treated as greedy. For example, `a*` or `a*?` will match the longest possible sequence of "a"s.
+- **Line Feed and Dot:** RegexSolver handles all characters the same way. The dot `.` matches any Unicode character including line feed (`\n`).
+- **Empty Regular Expressions:** The empty language (matches no string) is represented by constructs like `[]` (empty character class). This is distinct from the empty string.
 
-### Union
+## Response Formats
 
-Compute the union of the provided terms and return the resulting term.
+The API can handle terms in two formats:
+- `regex`: a regular expression pattern
+- `fair`: FAIR (Fast Automaton Internal Representation), a stable, signed format used internally by the engine
 
-The maximum number of terms is currently limited to 10.
-
-#### Request
+By default, the engine returns whatever the operation produces, with no extra conversion. Override with `OperationOptions`, accepted by the operations that return a term:
 
 ```javascript
-const term1 = Term.regex("abc");
-const term2 = Term.regex("de");
-const term3 = Term.regex("fghi");
+import { Term, ResponseFormat } from 'regexsolver';
 
-term1.union(term2, term3).then(result => {
-  console.log(result.toString());
-});
+const term1 = Term.regex('abcde');
+const term2 = Term.regex('de');
+
+const result1 = await client.union(term1, term2, { responseFormat: ResponseFormat.REGEX });
+console.log(result1.toString()); // regex=(abc)?de
+
+const result2 = await client.union(term1, term2, { responseFormat: ResponseFormat.FAIR });
+console.log(result2.toString()); // fair=...
 ```
 
-#### Response
+If the format does not matter, omit `responseFormat` or set it to `ResponseFormat.ANY`.
 
-```
-regex=(abc|de|fghi)
-```
+Regardless of the format, you can always call `getPattern()` to obtain the regex pattern of a term.
 
-### Subtraction / Difference
+## Bounding execution time
 
-Compute the first term minus the second and return the resulting term.
-
-#### Request
+Set a server-side compute timeout in milliseconds with `executionTimeout` in `OperationOptions`:
 
 ```javascript
-const term1 = Term.regex("(abc|de)");
-const term2 = Term.regex("de");
+import { TimeoutExceededError, Term } from 'regexsolver';
 
-term1.subtraction(term2).then(result => {
-  console.log(result.toString());
-});
-
+// Limit the server-side compute time to 100 ms
+try {
+    const term1 = Term.regex('.*ab.*c(de|fg).*dab.*c(de|fg).*ab.*c(de|fg).*dab.*c');
+    const term2 = Term.regex('.*abc.*');
+    
+    const res = await client.difference(term1, term2, { executionTimeout: 100 });
+} catch (error) {
+    if (error instanceof TimeoutExceededError) {
+        console.log(error.message); // The operation took too much time.
+    }
+}
 ```
 
-#### Response
+Timeout is best effort. The exact time is not guaranteed.
 
-```
-regex=abc
-```
+## API Overview
 
-### Equivalence
+`RegexSolverClient` exposes the following methods. Every method accepts an optional options object as its last parameter: operations that return a term take `OperationOptions` (`responseFormat`, `deterministic`, `executionTimeout`), while analyze operations and `determinize()` take `ExecutionOptions` (`executionTimeout` only); the response format is not theirs to choose. `generateStrings()` takes a `GenerateStringsOptions` carrying its ordering, seed, length and charset options.
 
-Analyze if the two provided terms are equivalent.
+### Analyze
 
-#### Request
+| Method | Return | Description |
+| -------- | ------- | ------- |
+| `client.equivalent(term1, term2, options?)` | `Promise<boolean>` | `true` if `term1` and `term2` accept exactly the same language. |
+| `client.getCardinality(term, options?)` | `Promise<Cardinality>` | Returns the number of possible matched strings. |
+| `client.getDot(term, options?)` | `Promise<string>` | Returns a Graphviz DOT representation of the automaton. |
+| `client.getLength(term, options?)` | `Promise<Length>` | Returns the minimum and maximum length of matched strings. |
+| `client.getPattern(term, options?)` | `Promise<string>` | Returns a regular expression pattern for the term. |
+| `client.isEmpty(term, options?)` | `Promise<boolean>` | `true` if the term matches no string. |
+| `client.isEmptyString(term, options?)` | `Promise<boolean>` | `true` if the term matches only the empty string. |
+| `client.isTotal(term, options?)` | `Promise<boolean>` | `true` if the term matches all possible strings. |
+| `client.isDeterministic(term, options?)` | `Promise<boolean>` | `true` if the term's automaton is deterministic. Only a deterministic FAIR guarantees consistent string ordering across paginated `generateStrings()` calls; call `determinize()` first if this is `false`. |
+| `client.subset(subset, superset, options?)` | `Promise<boolean>` | `true` if every string matched by `subset` is also matched by `superset`. |
 
-```javascript
-const term1 = Term.regex("(abc|de)");
-const term2 = Term.regex("(abc|de)*");
+### Compute
 
-term1.isEquivalentTo(term2).then(result => {
-  console.log(result);
-});
-```
+| Method | Return | Description |
+| -------- | ------- | ------- |
+| `client.complement(term, options?)` | `Promise<Term>` | Computes the complement of the given term. |
+| `client.concat(term1, term2, ..., options?)` | `Promise<Term>` | Concatenates multiple terms in order. |
+| `client.determinize(term, options?)` | `Promise<Term>` | Computes a deterministic FAIR for the given term, suitable for consistent pagination with `generateStrings()`. |
+| `client.difference(base, excluded, options?)` | `Promise<Term>` | Computes the difference `base - excluded`. |
+| `client.intersection(term1, term2, ..., options?)` | `Promise<Term>` | Computes the intersection of the given terms. |
+| `client.repeat(term, min, max, options?)` | `Promise<Term>` | Computes the repetition of the term between `min` and `max` times. |
+| `client.union(term1, term2, ..., options?)` | `Promise<Term>` | Computes the union of the given terms. |
 
-#### Response
+### Generate
 
-```
-false
-```
+| Method | Return | Description |
+| -------- | ------- | ------- |
+| `client.generateStrings(term, limit, offset, options?)` | `Promise<string[]>` | Generates up to `limit` unique strings matched by `term`, skipping the first `offset` strings. The options object controls `pathOrder`, `characterOrder`, `seed`, `minLength`, `maxLength` and `charset`. |
 
-### Subset
+## Cross-Language Support
 
-Analyze if the second term is a subset of the first.
+If you want to use this library with other programming languages, we provide:
+- [regexsolver-java](https://github.com/RegexSolver/regexsolver-java)
+- [regexsolver-python](https://github.com/RegexSolver/regexsolver-python)
 
-#### Request
+For more information about how to use the wrappers, you can refer to our [guide](https://docs.regexsolver.com/getting-started.html).
 
-```javascript
-const term1 = Term.regex("de");
-const term2 = Term.regex("(abc|de)");
+You can also take a look at [regexsolver](https://github.com/RegexSolver/regexsolver) which contains the source code of the engine.
 
-term1.isSubsetOf(term2).then(result => {
-  console.log(result);
-});
+## License
 
-```
-
-#### Response
-
-```
-true
-```
-
-### Details
-
-Compute the details of the provided term.
-
-The computed details are:
-
-- **Cardinality:** the number of possible values.
-- **Length:** the minimum and maximum length of possible values.
-- **Empty:** true if is an empty set (does not contain any value), false otherwise.
-- **Total:** true if is a total set (contains all values), false otherwise.
-
-#### Request
-
-```javascript
-const term = Term.regex("(abc|de)");
-
-term.getDetails().then(details => {
-  console.log(details.toString());
-});
-```
-
-#### Response
-
-```
-Details[cardinality=Integer(2), length=Length[minimum=2, maximum=3], empty=false, total=false]
-```
-
-### Generate Strings
-
-Generate the given number of strings that can be matched by the provided term.
-
-The maximum number of strings to generate is currently limited to 200.
-
-#### Request
-
-```javascript
-const term = Term.regex("(abc|de){2}");
-
-term.generateStrings(3).then(result => {
-  console.log(result);
-});
-```
-
-#### Response
-
-```
-[ 'deabc', 'abcde', 'dede' ]
-```
+This project is licensed under the MIT License.
