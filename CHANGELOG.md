@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `@types/node` raised to `^26.5.1`.
+
 ## [1.1.0] - 2026-08-08
 
 The singleton `RegexSolver` becomes an instantiable `RegexSolverClient`, every operation moves from `Term` onto that client, and the SDK covers the whole API rather than the seven endpoints it knew about. The API changed with it, to a new OpenAPI contract served under `/v1`, so upgrading is not optional: 1.0.x no longer reaches an endpoint that exists. Code written against 1.0.4 does not compile against this release; see *Compatibility* below.
@@ -85,6 +91,7 @@ The singleton `RegexSolver` becomes an instantiable `RegexSolverClient`, every o
 
 Initial release.
 
+[Unreleased]: https://github.com/RegexSolver/regexsolver-js/compare/v1.1.0...HEAD
 [1.1.0]: https://github.com/RegexSolver/regexsolver-js/compare/v1.0.4...v1.1.0
 [1.0.4]: https://github.com/RegexSolver/regexsolver-js/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/RegexSolver/regexsolver-js/compare/v1.0.2...v1.0.3
