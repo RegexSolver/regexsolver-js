@@ -127,6 +127,8 @@ Timeout is best effort. The exact time is not guaranteed.
 | -------- | ------- | ------- |
 | `client.generateStrings(term, limit, offset, options?)` | `Promise<string[]>` | Generates up to `limit` unique strings matched by `term`, skipping the first `offset` strings. The options object controls `pathOrder`, `characterOrder`, `seed`, `minLength`, `maxLength` and `charset`. |
 
+See [CHANGELOG.md](CHANGELOG.md) for notable changes.
+
 ## Cross-Language Support
 
 If you want to use this library with other programming languages, we provide:
