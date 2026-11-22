@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Deprecated
+
+- The client is retired: the hosted RegexSolver API it calls was shut down in November 2026, so no release works any more. Use the [regexsolver](https://github.com/RegexSolver/regexsolver) Rust library instead. The repository is archived.
+
 ### Changed
 
 - `@types/node` raised to `^26.5.1`.
